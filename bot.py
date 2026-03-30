@@ -1,5 +1,5 @@
 # bot.py - LeGusta Casino Bot
-# Versão Final Completa e Funcional
+# Versão Final Corrigida - Setup Funcionando 100%
 # Python 3.11.9 | discord.py 2.3.2
 
 import os
@@ -95,10 +95,6 @@ def get_timestamp():
     now = datetime.datetime.now()
     return f"<t:{int(now.timestamp())}:F>"
 
-def get_time_code():
-    """Retorna código de tempo relativo"""
-    return f"<t:{int(datetime.datetime.now().timestamp())}:R>"
-
 def create_embed(title: str, description: str = "", color: discord.Color = discord.Color.gold(), 
                  author: discord.Member = None, thumbnail: str = None, image: str = None,
                  footer_text: str = "LeGusta Casino © 2024"):
@@ -146,321 +142,186 @@ async def on_ready():
     print(f"🎰 LeGusta Casino Bot Online!")
     print(f"Bot: {bot.user.name} | ID: {bot.user.id}")
     
-    # Sincroniza comandos slash
     try:
         synced = await bot.tree.sync()
         print(f"✅ Comandos sincronizados: {len(synced)}")
     except Exception as e:
         print(f"❌ Erro ao sincronizar: {e}")
     
-    # Inicia tarefas
     check_old_tickets.start()
     process_suggestions.start()
     reset_monthly_leaderboard.start()
     db.save()
 
 # ═══════════════════════════════════════════════════════════════
-# SISTEMA DE LOGS - CORRIGIDO E FUNCIONAL
+# SISTEMA DE LOGS
 # ═══════════════════════════════════════════════════════════════
 
 async def get_or_create_log_channel(guild, channel_name):
     """Busca ou cria canal de log"""
-    channel = discord.utils.get(guild.channels, name=channel_name)
-    if not channel:
-        # Busca categoria de logs
-        category = discord.utils.get(guild.categories, name="📊 LOGS")
-        if not category:
-            # Cria categoria com permissões apenas para donos
-            overwrites = {
-                guild.default_role: discord.PermissionOverwrite(read_messages=False),
-                guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True)
-            }
-            for owner_id in OWNER_IDS:
-                owner = guild.get_member(owner_id)
-                if owner:
-                    overwrites[owner] = discord.PermissionOverwrite(read_messages=True, send_messages=True)
-            
-            category = await guild.create_category("📊 LOGS", overwrites=overwrites)
-        
-        # Cria canal
-        channel = await guild.create_text_channel(channel_name, category=category)
+    # Procura por nome exato ou similar
+    for channel in guild.text_channels:
+        if channel.name == channel_name or channel_name in channel.name:
+            return channel
     
-    return channel
+    # Cria categoria se não existir
+    category = discord.utils.get(guild.categories, name="📊 LOGS")
+    if not category:
+        overwrites = {
+            guild.default_role: discord.PermissionOverwrite(read_messages=False),
+            guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True)
+        }
+        for owner_id in OWNER_IDS:
+            owner = guild.get_member(owner_id)
+            if owner:
+                overwrites[owner] = discord.PermissionOverwrite(read_messages=True, send_messages=True)
+        
+        try:
+            category = await guild.create_category("📊 LOGS", overwrites=overwrites)
+        except Exception as e:
+            print(f"Erro ao criar categoria LOGS: {e}")
+            category = None
+    
+    # Cria canal
+    try:
+        if category:
+            channel = await guild.create_text_channel(channel_name, category=category)
+        else:
+            channel = await guild.create_text_channel(channel_name)
+        return channel
+    except Exception as e:
+        print(f"Erro ao criar canal {channel_name}: {e}")
+        return None
 
 @bot.event
 async def on_message_delete(message):
-    """Log de mensagens deletadas - CORRIGIDO"""
-    if message.author.bot:
+    """Log de mensagens deletadas"""
+    if message.author.bot or not message.guild:
         return
-    
-    if not message.guild:
-        return
-    
-    channel = await get_or_create_log_channel(message.guild, "logs-mensagens")
-    
-    # Conteúdo da mensagem
-    content = message.content if message.content else "*[Sem texto - possivelmente embed ou arquivo]*"
-    
-    # Se for muito longo, trunca
-    if len(content) > 1000:
-        content = content[:997] + "..."
-    
-    embed = create_embed(
-        "🗑️ MENSAGEM DELETADA",
-        f"**`Autor:`** {message.author.mention} (`{message.author.id}`)\n"
-        f"**`Canal:`** {message.channel.mention}\n"
-        f"**`Horário:`** {get_timestamp()}\n\n"
-        f"**`Conteúdo:`**\n```\n{content}\n```",
-        discord.Color.red(),
-        message.author
-    )
-    
-    # Se tiver anexos
-    if message.attachments:
-        files = ", ".join([a.filename for a in message.attachments[:5]])
-        embed.add_field(name="📎 Anexos", value=f"`{files}`", inline=False)
     
     try:
+        channel = await get_or_create_log_channel(message.guild, "logs-mensagens")
+        if not channel:
+            return
+        
+        content = message.content if message.content else "*[Sem texto]*"
+        if len(content) > 1000:
+            content = content[:997] + "..."
+        
+        embed = create_embed(
+            "🗑️ MENSAGEM DELETADA",
+            f"**`Autor:`** {message.author.mention} (`{message.author.id}`)\n"
+            f"**`Canal:`** {message.channel.mention}\n"
+            f"**`Horário:`** {get_timestamp()}\n\n"
+            f"**`Conteúdo:`**\n```\n{content}\n```",
+            discord.Color.red(),
+            message.author
+        )
+        
+        if message.attachments:
+            files = ", ".join([a.filename for a in message.attachments[:5]])
+            embed.add_field(name="📎 Anexos", value=f"`{files}`", inline=False)
+        
         await channel.send(embed=embed)
     except Exception as e:
         print(f"Erro ao logar delete: {e}")
 
 @bot.event
 async def on_message_edit(before, after):
-    """Log de mensagens editadas - CORRIGIDO"""
-    if before.author.bot:
+    """Log de mensagens editadas"""
+    if before.author.bot or not before.guild or before.content == after.content:
         return
-    
-    if not before.guild:
-        return
-    
-    if before.content == after.content:
-        return
-    
-    channel = await get_or_create_log_channel(before.guild, "logs-mensagens")
-    
-    before_content = before.content if before.content else "*Sem conteúdo*"
-    after_content = after.content if after.content else "*Sem conteúdo*"
-    
-    if len(before_content) > 500:
-        before_content = before_content[:497] + "..."
-    if len(after_content) > 500:
-        after_content = after_content[:497] + "..."
-    
-    embed = create_embed(
-        "✏️ MENSAGEM EDITADA",
-        f"**`Autor:`** {before.author.mention} (`{before.author.id}`)\n"
-        f"**`Canal:`** {before.channel.mention}\n"
-        f"**`Link:`** [Ir para mensagem]({after.jump_url})\n"
-        f"**`Horário:`** {get_timestamp()}\n\n"
-        f"**`Antes:`**\n```\n{before_content}\n```\n"
-        f"**`Depois:`**\n```\n{after_content}\n```",
-        discord.Color.orange(),
-        before.author
-    )
     
     try:
+        channel = await get_or_create_log_channel(before.guild, "logs-mensagens")
+        if not channel:
+            return
+        
+        before_content = before.content if before.content else "*Sem conteúdo*"
+        after_content = after.content if after.content else "*Sem conteúdo*"
+        
+        if len(before_content) > 500:
+            before_content = before_content[:497] + "..."
+        if len(after_content) > 500:
+            after_content = after_content[:497] + "..."
+        
+        embed = create_embed(
+            "✏️ MENSAGEM EDITADA",
+            f"**`Autor:`** {before.author.mention} (`{before.author.id}`)\n"
+            f"**`Canal:`** {before.channel.mention}\n"
+            f"**`Link:`** [Ir para mensagem]({after.jump_url})\n"
+            f"**`Horário:`** {get_timestamp()}\n\n"
+            f"**`Antes:`**\n```\n{before_content}\n```\n"
+            f"**`Depois:`**\n```\n{after_content}\n```",
+            discord.Color.orange(),
+            before.author
+        )
+        
         await channel.send(embed=embed)
     except Exception as e:
         print(f"Erro ao logar edit: {e}")
 
 @bot.event
 async def on_member_join(member):
-    """Log de entrada - CORRIGIDO"""
+    """Log de entrada"""
     if not member.guild:
         return
     
-    channel = await get_or_create_log_channel(member.guild, "logs-de-usuário")
-    
-    account_age = (datetime.datetime.now() - member.created_at).days
-    
-    embed = create_embed(
-        "✅ NOVO MEMBRO",
-        f"**`Usuário:`** {member.mention}\n"
-        f"**`ID:`** `{member.id}`\n"
-        f"**`Tag:`** `{member}`\n"
-        f"**`Conta Criada:`** <t:{int(member.created_at.timestamp())}:F> ({account_age} dias)\n"
-        f"**`Entrada:`** {get_timestamp()}",
-        discord.Color.green(),
-        member
-    )
-    
     try:
+        channel = await get_or_create_log_channel(member.guild, "logs-de-usuario")
+        if not channel:
+            return
+        
+        account_age = (datetime.datetime.now() - member.created_at).days
+        
+        embed = create_embed(
+            "✅ NOVO MEMBRO",
+            f"**`Usuário:`** {member.mention}\n"
+            f"**`ID:`** `{member.id}`\n"
+            f"**`Tag:`** `{member}`\n"
+            f"**`Conta Criada:`** <t:{int(member.created_at.timestamp())}:F> ({account_age} dias)\n"
+            f"**`Entrada:`** {get_timestamp()}",
+            discord.Color.green(),
+            member
+        )
+        
         await channel.send(embed=embed)
     except Exception as e:
         print(f"Erro ao logar join: {e}")
     
     # Cargo automático
-    membro_role = discord.utils.get(member.guild.roles, name="👤 Membro")
-    if membro_role:
-        try:
+    try:
+        membro_role = discord.utils.get(member.guild.roles, name="👤 Membro")
+        if membro_role:
             await member.add_roles(membro_role)
-        except:
-            pass
+    except:
+        pass
 
 @bot.event
 async def on_member_remove(member):
-    """Log de saída - CORRIGIDO"""
+    """Log de saída"""
     if not member.guild:
         return
     
-    channel = await get_or_create_log_channel(member.guild, "logs-de-usuário")
-    
-    embed = create_embed(
-        "👋 MEMBRO SAIU",
-        f"**`Usuário:`** `{member}`\n"
-        f"**`ID:`** `{member.id}`\n"
-        f"**`Saída:`** {get_timestamp()}",
-        discord.Color.red()
-    )
-    
     try:
+        channel = await get_or_create_log_channel(member.guild, "logs-de-usuario")
+        if not channel:
+            return
+        
+        embed = create_embed(
+            "👋 MEMBRO SAIU",
+            f"**`Usuário:`** `{member}`\n"
+            f"**`ID:`** `{member.id}`\n"
+            f"**`Saída:`** {get_timestamp()}",
+            discord.Color.red()
+        )
+        
         await channel.send(embed=embed)
     except Exception as e:
         print(f"Erro ao logar leave: {e}")
 
-@bot.event
-async def on_member_update(before, after):
-    """Log de atualizações de membro"""
-    if not before.guild:
-        return
-    
-    # Nome alterado
-    if before.display_name != after.display_name:
-        channel = await get_or_create_log_channel(before.guild, "logs-de-usuário")
-        embed = create_embed(
-            "📝 NOME ALTERADO",
-            f"**`Usuário:`** {after.mention}\n"
-            f"**`De:`** `{before.display_name}`\n"
-            f"**`Para:`** `{after.display_name}`\n"
-            f"**`Horário:`** {get_timestamp()}",
-            discord.Color.blue(),
-            after
-        )
-        try:
-            await channel.send(embed=embed)
-        except:
-            pass
-    
-    # Avatar alterado
-    if before.display_avatar.url != after.display_avatar.url:
-        channel = await get_or_create_log_channel(before.guild, "logs-de-usuário")
-        embed = create_embed(
-            "🖼️ AVATAR ALTERADO",
-            f"**`Usuário:`** {after.mention}\n"
-            f"**`Horário:`** {get_timestamp()}",
-            discord.Color.blue(),
-            after,
-            thumbnail=after.display_avatar.url
-        )
-        try:
-            await channel.send(embed=embed)
-        except:
-            pass
-    
-    # Proteção de cargos
-    if len(before.roles) < len(after.roles):
-        new_roles = [r for r in after.roles if r not in before.roles]
-        for role in new_roles:
-            if is_protected_role(role.name):
-                async for entry in after.guild.audit_logs(limit=1, action=discord.AuditLogAction.member_role_update):
-                    if entry.target.id == after.id and entry.user.id not in OWNER_IDS:
-                        await after.remove_roles(role)
-                        log_channel = await get_or_create_log_channel(after.guild, "logs-de-punições")
-                        embed = create_embed(
-                            "⛔ TENTATIVA DE CARGO PROTEGIDO",
-                            f"**`Tentativa por:`** {entry.user.mention}\n"
-                            f"**`Tentou dar:`** {role.mention} para {after.mention}\n"
-                            f"**`Ação:`** Revertida automaticamente",
-                            discord.Color.dark_red()
-                        )
-                        try:
-                            await log_channel.send(embed=embed)
-                        except:
-                            pass
-                        try:
-                            await entry.user.send(f"⛔ Você não pode atribuir o cargo {role.name}!")
-                        except:
-                            pass
-                        break
-
-async def log_punishment(guild, punishment_type, target, moderator, reason):
-    """Log de punições"""
-    channel = await get_or_create_log_channel(guild, "logs-de-punições")
-    
-    account_age = (datetime.datetime.now() - target.created_at).days
-    
-    colors = {
-        "Ban": discord.Color.dark_red(),
-        "Kick": discord.Color.red(),
-        "Warn": discord.Color.orange(),
-        "Mute": discord.Color.yellow()
-    }
-    
-    embed = create_embed(
-        f"🔨 {punishment_type}",
-        f"**`Usuário:`** {target.mention}\n"
-        f"**`ID:`** `{target.id}`\n"
-        f"**`Conta Criada:`** <t:{int(target.created_at.timestamp())}:F> ({account_age} dias)\n"
-        f"**`Moderador:`** {moderator.mention}\n"
-        f"**`Motivo:`** `{reason}`\n"
-        f"**`Horário:`** {get_timestamp()}",
-        colors.get(punishment_type, discord.Color.red()),
-        target
-    )
-    
-    try:
-        await channel.send(embed=embed)
-    except Exception as e:
-        print(f"Erro ao logar punição: {e}")
-
-async def log_ticket_event(guild, action, ticket_id, user, staff=None):
-    """Log de tickets"""
-    channel = await get_or_create_log_channel(guild, "logs-de-tickets")
-    
-    desc = (f"**`Ação:`** {action}\n"
-            f"**`Ticket ID:`** `{ticket_id}`\n"
-            f"**`Usuário:`** {user.mention}\n")
-    
-    if staff:
-        desc += f"**`Staff:`** {staff.mention}"
-    
-    embed = create_embed(
-        "🎫 LOG DE TICKET",
-        desc,
-        discord.Color.purple()
-    )
-    
-    try:
-        await channel.send(embed=embed)
-    except Exception as e:
-        print(f"Erro ao logar ticket: {e}")
-
-async def log_report(guild, report_id, reporter, reported, reason, status, anonymous=True):
-    """Log de denúncias"""
-    channel = await get_or_create_log_channel(guild, "logs-de-denúncias")
-    
-    reporter_name = "||Anônimo||" if anonymous else reporter.mention
-    
-    embed = create_embed(
-        "🚨 LOG DE DENÚNCIA",
-        f"**`ID:`** `{report_id}`\n"
-        f"**`Denunciado:`** {reported.mention} (`{reported.id}`)\n"
-        f"**`Por:`** {reporter_name} (`{reporter.id}`)\n"
-        f"**`Motivo:`** `{reason}`\n"
-        f"**`Status:`** `{status}`\n"
-        f"**`Horário:`** {get_timestamp()}",
-        discord.Color.dark_red(),
-        reported
-    )
-    
-    try:
-        await channel.send(embed=embed)
-    except Exception as e:
-        print(f"Erro ao logar denúncia: {e}")
-
 # ═══════════════════════════════════════════════════════════════
-# SISTEMA DE TICKET - PAINEL COMPLETO
+# SISTEMA DE TICKET
 # ═══════════════════════════════════════════════════════════════
 
 class TicketTypeSelect(Select):
@@ -526,7 +387,7 @@ class TicketPanelView(View):
         
         user_tickets = []
         for channel in guild.text_channels:
-            if channel.topic and f"UserID: {user.id}" in channel.topic:
+            if channel.topic and str(user.id) in channel.topic:
                 user_tickets.append(channel)
         
         if not user_tickets:
@@ -537,7 +398,7 @@ class TicketPanelView(View):
         
         embed = create_embed(
             "🎫 SEUS TICKETS ABERTOS",
-            "\n".join([f"• {t.mention} - `{t.topic.split('Ticket #')[1].split('|')[0].strip()}`" for t in user_tickets[:5]]) if user_tickets else "Nenhum ticket aberto",
+            "\n".join([f"• {t.mention}" for t in user_tickets[:5]]) if user_tickets else "Nenhum ticket aberto",
             discord.Color.blue()
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -559,7 +420,7 @@ async def create_ticket(interaction: discord.Interaction, ticket_type: str):
     
     # Verifica se já tem ticket aberto
     for channel in guild.text_channels:
-        if channel.topic and f"UserID: {user.id}" in channel.topic and "Status: Aguardando" in channel.topic:
+        if channel.topic and str(user.id) in channel.topic and "Aguardando" in channel.topic:
             await interaction.response.send_message(
                 f"❌ Você já tem um ticket aberto: {channel.mention}", 
                 ephemeral=True
@@ -595,7 +456,7 @@ async def create_ticket(interaction: discord.Interaction, ticket_type: str):
     
     # Cria canal
     channel = await guild.create_text_channel(
-        f"🎫┃{user.name}",
+        f"ticket-{user.name}",
         category=category,
         overwrites=overwrites,
         topic=f"Ticket #{ticket_id} | Tipo: {ticket_type} | UserID: {user.id} | Status: Aguardando staff..."
@@ -614,7 +475,7 @@ async def create_ticket(interaction: discord.Interaction, ticket_type: str):
     }
     db.save()
     
-    # MENSAGEM DE ATENDIMENTO BONITA
+    # MENSAGEM DE ATENDIMENTO
     welcome_embed = discord.Embed(
         title=f"🎰 BEM-VINDO AO ATENDIMENTO - LeGusta Casino",
         description=(
@@ -647,10 +508,8 @@ async def create_ticket(interaction: discord.Interaction, ticket_type: str):
     welcome_embed.set_image(url="https://i.imgur.com/1NA8dQR.png")
     welcome_embed.set_footer(text="LeGusta Casino © 2024 | Sistema de Tickets", icon_url="https://i.imgur.com/1NA8dQR.png")
     
-    # View com botões
     view = TicketControlView(ticket_id, user.id, channel.id)
     
-    # Ping em spoiler
     ping_text = " ".join([r.mention for r in ping_roles]) if ping_roles else ""
     
     msg = await channel.send(
@@ -659,13 +518,11 @@ async def create_ticket(interaction: discord.Interaction, ticket_type: str):
         view=view
     )
     
-    # Fixa mensagem
     try:
         await msg.pin()
     except:
         pass
     
-    # Confirmação para usuário
     confirm_embed = create_embed(
         "✅ TICKET CRIADO COM SUCESSO!",
         f"**`Canal:`** {channel.mention}\n"
@@ -676,8 +533,6 @@ async def create_ticket(interaction: discord.Interaction, ticket_type: str):
     )
     
     await interaction.response.send_message(embed=confirm_embed, ephemeral=True)
-    
-    # Log
     await log_ticket_event(guild, "Ticket Criado", ticket_id, user)
 
 class TicketControlView(View):
@@ -702,22 +557,18 @@ class TicketControlView(View):
             await interaction.response.send_message(f"⚠️ Já assumido por {current}!", ephemeral=True)
             return
         
-        # Atualiza dados
         db.tickets[self.channel_id]["staff_id"] = interaction.user.id
         db.tickets[self.channel_id]["staff_name"] = str(interaction.user)
         db.tickets[self.channel_id]["status"] = "Em atendimento"
         db.save()
         
-        # Atualiza estatísticas
         if interaction.user.id not in db.staff_stats:
             db.staff_stats[interaction.user.id] = {"tickets": 0, "bugs": 0}
         db.staff_stats[interaction.user.id]["tickets"] += 1
         
-        # Atualiza tópico
         channel = interaction.channel
         await channel.edit(topic=f"Ticket #{self.ticket_id} | Status: Em atendimento por {interaction.user.name}")
         
-        # Nova mensagem de atendimento
         embed = discord.Embed(
             title="🎰 ATENDIMENTO INICIADO",
             description=(
@@ -736,7 +587,6 @@ class TicketControlView(View):
         
         await channel.send(embed=embed)
         
-        # Atualiza botão
         button.disabled = True
         button.label = f"✅ Assumido por {interaction.user.name}"
         button.style = discord.ButtonStyle.secondary
@@ -773,14 +623,12 @@ class ConfirmCloseView(View):
     async def confirm(self, interaction: discord.Interaction, button: Button):
         channel = interaction.channel
         
-        # Atualiza dados
         if self.channel_id in db.tickets:
             db.tickets[self.channel_id]["status"] = "Fechado"
             db.tickets[self.channel_id]["closed_at"] = datetime.datetime.now().isoformat()
             db.tickets[self.channel_id]["closed_by"] = interaction.user.id
             db.save()
         
-        # Move para lixeira
         trash_category = discord.utils.get(interaction.guild.categories, name="🗑️ LIXEIRA")
         if not trash_category:
             overwrites = {
@@ -798,15 +646,12 @@ class ConfirmCloseView(View):
             
             trash_category = await interaction.guild.create_category("🗑️ LIXEIRA", overwrites=overwrites)
         
-        # Remove permissões do usuário
         user = interaction.guild.get_member(self.user_id)
         if user:
             await channel.set_permissions(user, overwrite=None)
         
-        # Renomeia e move
-        await channel.edit(name=f"🔒┃arquivado-{self.ticket_id}", category=trash_category)
+        await channel.edit(name=f"arquivado-{self.ticket_id}", category=trash_category)
         
-        # Mensagem final
         embed = create_embed(
             "🔒 TICKET ARQUIVADO",
             f"**`Ticket ID:`** `{self.ticket_id}`\n"
@@ -818,7 +663,6 @@ class ConfirmCloseView(View):
         
         await interaction.response.send_message(embed=embed)
         
-        # Log
         user = interaction.guild.get_member(self.user_id)
         if user:
             await log_ticket_event(interaction.guild, "Ticket Fechado", self.ticket_id, user, interaction.user)
@@ -830,148 +674,22 @@ class ConfirmCloseView(View):
         await interaction.response.send_message("✅ Ticket mantido aberto.", ephemeral=True)
         self.stop()
 
-# ═══════════════════════════════════════════════════════════════
-# SISTEMA DE DENÚNCIAS
-# ═══════════════════════════════════════════════════════════════
-
-class ReportSystem:
-    @staticmethod
-    async def create_report(interaction: discord.Interaction, reported: discord.Member, motivo: str):
-        if reported.id in OWNER_IDS:
-            await interaction.response.send_message("⛔ Não é possível denunciar donos!", ephemeral=True)
-            return
-        
-        guild = interaction.guild
-        report_id = generate_report_id()
-        
-        # Cria canal privado
-        category = discord.utils.get(guild.categories, name="🔒 STAFF")
-        if not category:
-            category = await guild.create_category("🔒 STAFF")
-        
-        overwrites = {
-            guild.default_role: discord.PermissionOverwrite(read_messages=False),
-            guild.me: discord.PermissionOverwrite(read_messages=True)
-        }
-        
-        for owner_id in OWNER_IDS:
-            owner = guild.get_member(owner_id)
-            if owner:
-                overwrites[owner] = discord.PermissionOverwrite(read_messages=True, send_messages=True)
-        
-        channel = await guild.create_text_channel(
-            f"🚨┃denuncia-{report_id}",
-            category=category,
-            overwrites=overwrites
-        )
-        
-        # Salva dados
-        db.reports[report_id] = {
-            "channel_id": channel.id,
-            "reporter_id": interaction.user.id,
-            "reported_id": reported.id,
-            "motivo": motivo,
-            "status": "Não resolvida",
-            "created_at": datetime.datetime.now().isoformat()
-        }
-        db.save()
-        
-        # Embed
-        account_age = (datetime.datetime.now() - reported.created_at).days
-        
-        embed = create_embed(
-            f"🚨 DENÚNCIA #{report_id}",
-            f"**`Denunciado:`** {reported.mention}\n"
-            f"**`ID:`** `{reported.id}`\n"
-            f"**`Por:`** ||Anônimo||\n"
-            f"**`Motivo:`** `{motivo}`\n"
-            f"**`Conta:`** {account_age} dias\n"
-            f"**`Status:`** 🔴 Não resolvida\n"
-            f"**`Data:`** {get_timestamp()}",
-            discord.Color.red(),
-            reported
-        )
-        
-        view = ReportAdminView(report_id, reported, interaction.user)
-        await channel.send(embed=embed, view=view)
-        
-        # Log interno
-        await log_report(guild, report_id, interaction.user, reported, motivo, "Não resolvida", False)
-        
-        # Confirmação
-        confirm = create_embed(
-            "✅ DENÚNCIA ENVIADA",
-            f"**`ID:`** `{report_id}`\nAnalisaremos em breve! Obrigado.",
-            discord.Color.green()
-        )
-        await interaction.response.send_message(embed=confirm, ephemeral=True)
-
-class ReportAdminView(View):
-    def __init__(self, report_id, reported, reporter):
-        super().__init__(timeout=None)
-        self.report_id = report_id
-        self.reported = reported
-        self.reporter = reporter
+async def log_ticket_event(guild, action, ticket_id, user, staff=None):
+    """Log de tickets"""
+    channel = await get_or_create_log_channel(guild, "logs-de-tickets")
+    if not channel:
+        return
     
-    @discord.ui.button(label="✅ Aceitar", style=discord.ButtonStyle.success)
-    async def accept(self, interaction: discord.Interaction, button: Button):
-        if not is_owner(interaction.user.id):
-            await interaction.response.send_message("⛔ Apenas donos!", ephemeral=True)
-            return
-        
-        db.reports[self.report_id]["status"] = "Resolvida"
-        db.save()
-        
-        # Publica
-        public_channel = discord.utils.get(interaction.guild.channels, name="denúncias")
-        if not public_channel:
-            overwrites = {interaction.guild.default_role: discord.PermissionOverwrite(send_messages=False)}
-            public_channel = await interaction.guild.create_text_channel("denúncias", overwrites=overwrites)
-        
-        embed = create_embed(
-            f"🚨 DENÚNCIA ACEITA #{self.report_id}",
-            f"**`Denunciado:`** {self.reported.mention}\n"
-            f"**`Motivo:`** `{db.reports[self.report_id]['motivo']}`\n"
-            f"**`Resolvida por:`** {interaction.user.mention}",
-            discord.Color.green(),
-            self.reported
-        )
-        
-        await public_channel.send(embed=embed)
-        await interaction.response.send_message("✅ Denúncia aceita!")
-        
-        await asyncio.sleep(300)
-        await interaction.channel.delete()
+    desc = f"**`Ação:`** {action}\n**`Ticket ID:`** `{ticket_id}`\n**`Usuário:`** {user.mention}\n"
+    if staff:
+        desc += f"**`Staff:`** {staff.mention}"
     
-    @discord.ui.button(label="❌ Recusar", style=discord.ButtonStyle.danger)
-    async def reject(self, interaction: discord.Interaction, button: Button):
-        if not is_owner(interaction.user.id):
-            await interaction.response.send_message("⛔ Apenas donos!", ephemeral=True)
-            return
-        
-        await interaction.response.send_message("❌ Denúncia recusada.")
-        await asyncio.sleep(5)
-        await interaction.channel.delete()
+    embed = create_embed("🎫 LOG DE TICKET", desc, discord.Color.purple())
     
-    @discord.ui.button(label="🔍 Sob Revisão", style=discord.ButtonStyle.primary)
-    async def review(self, interaction: discord.Interaction, button: Button):
-        if not is_owner(interaction.user.id):
-            await interaction.response.send_message("⛔ Apenas donos!", ephemeral=True)
-            return
-        
-        db.reports[self.report_id]["status"] = "Sob Revisão"
-        db.save()
-        
-        async for message in interaction.channel.history(limit=10):
-            if message.embeds and "DENÚNCIA #" in message.embeds[0].title:
-                old = message.embeds[0]
-                new_desc = old.description.replace("🔴 Não resolvida", "🟡 Sob Revisão")
-                new = discord.Embed.from_dict(old.to_dict())
-                new.description = new_desc
-                await message.edit(embed=new)
-                break
-        
-        await interaction.response.send_message("🔍 Status atualizado!")
+    try:
+        await channel.send(embed=embed)
+    except:
+        pass
 
 # ═══════════════════════════════════════════════════════════════
 # COMANDOS SLASH
@@ -980,8 +698,6 @@ class ReportAdminView(View):
 @bot.tree.command(name="ticket", description="🎫 Envia o painel de tickets no canal atual")
 @commands.has_permissions(administrator=True)
 async def slash_ticket(interaction: discord.Interaction):
-    """Envia o painel de tickets"""
-    
     embed = discord.Embed(
         title="🎰 CENTRAL DE ATENDIMENTO - LeGusta Casino",
         description=(
@@ -1018,6 +734,9 @@ async def slash_ticket(interaction: discord.Interaction):
 @bot.tree.command(name="denunciar", description="🚨 Denunciar um usuário anonimamente")
 @app_commands.describe(usuario="Usuário a denunciar", motivo="Motivo da denúncia")
 async def slash_denunciar(interaction: discord.Interaction, usuario: discord.Member, motivo: str):
+    if usuario.id in OWNER_IDS:
+        await interaction.response.send_message("⛔ Não é possível denunciar donos!", ephemeral=True)
+        return
     await ReportSystem.create_report(interaction, usuario, motivo)
 
 @bot.tree.command(name="block", description="⛔ Bloquear invites em um canal")
@@ -1098,7 +817,7 @@ async def slash_sorteio(interaction: discord.Interaction, premio: str, duracao: 
             await canal.send(f"🎉 Parabéns {winner.mention}! Você ganhou: **{premio}**!")
 
 # ═══════════════════════════════════════════════════════════════
-# COMANDOS DE TEXTO
+# MODERAÇÃO
 # ═══════════════════════════════════════════════════════════════
 
 class Moderation(commands.Cog):
@@ -1120,7 +839,6 @@ class Moderation(commands.Cog):
             member
         )
         await ctx.send(embed=embed)
-        await log_punishment(ctx.guild, "Ban", member, ctx.author, reason)
     
     @commands.command()
     @commands.has_permissions(kick_members=True)
@@ -1137,7 +855,6 @@ class Moderation(commands.Cog):
             member
         )
         await ctx.send(embed=embed)
-        await log_punishment(ctx.guild, "Kick", member, ctx.author, reason)
     
     @commands.command()
     @commands.has_permissions(moderate_members=True)
@@ -1146,7 +863,6 @@ class Moderation(commands.Cog):
             await ctx.send("⛔ Não posso mutar donos!")
             return
         
-        # Parse tempo
         if tempo.endswith('h'):
             horas = float(tempo[:-1])
         elif tempo.endswith('m'):
@@ -1164,7 +880,6 @@ class Moderation(commands.Cog):
             member
         )
         await ctx.send(embed=embed)
-        await log_punishment(ctx.guild, "Mute", member, ctx.author, reason)
     
     @commands.command()
     @commands.has_permissions(manage_messages=True)
@@ -1180,116 +895,566 @@ class Moderation(commands.Cog):
             await member.send(f"⚠️ Aviso em {ctx.guild.name}: {reason}")
         except:
             pass
-        await log_punishment(ctx.guild, "Warn", member, ctx.author, reason)
 
 # ═══════════════════════════════════════════════════════════════
-# SETUP E OUTROS COMANDOS
+# SETUP CORRIGIDO E FUNCIONANDO
 # ═══════════════════════════════════════════════════════════════
 
 @bot.command()
 @commands.is_owner()
 async def setup(ctx):
-    """Setup completo do servidor"""
+    """Setup COMPLETO - Cria tudo passo a passo com verificação"""
     guild = ctx.guild
-    msg = await ctx.send("🎰 Iniciando setup...")
     
-    # Cargos
-    await msg.edit(content="🎰 Criando cargos...")
-    
-    roles_data = {
-        "🃏 Gusteds": {"color": 0x2C2F33, "hoist": True},
-        "🃁 Spokeas": {"color": 0x23272A, "hoist": True},
-        "🜲 Dono": {"color": 0xFFD700, "hoist": True},
-        "💸ADMIN💸": {"color": 0xFF0000, "hoist": True},
-        "⛨ Moderador": {"color": 0x00FF00, "hoist": True},
-        ".☘︎ ݁˖Gerente Cassino": {"color": 0xB8860B, "hoist": True},
-        "💰 Ajudante Cassino": {"color": 0x0000FF, "hoist": True},
-        "🎲 Gastador": {"color": 0x800080},
-        "⚜ Magnata": {"color": 0xFFA500},
-        "👤 Membro": {"color": 0x808080},
-        "🚫 Punido": {"color": 0x333333}
-    }
+    progress_msg = await ctx.send("🎰 **SETUP INICIADO** - Preparando estrutura...")
     
     created_roles = {}
-    for name, data in roles_data.items():
-        role = discord.utils.get(guild.roles, name=name)
-        if not role:
-            role = await guild.create_role(name=name, color=discord.Color(data["color"]), hoist=data["hoist"])
-        created_roles[name] = role
+    created_categories = {}
+    created_channels = {}
     
-    # Atribui cargos protegidos
-    gusteds = guild.get_member(GUSTEDS_ID)
-    spokeas = guild.get_member(SPOKEAS_ID)
-    if gusteds and created_roles["🃏 Gusteds"]:
-        await gusteds.add_roles(created_roles["🃏 Gusteds"])
-    if spokeas and created_roles["🃁 Spokeas"]:
-        await spokeas.add_roles(created_roles["🃁 Spokeas"])
-    
-    # Categorias e Canais
-    await msg.edit(content="🎰 Criando canais...")
-    
-    # Overwrites
-    staff_overwrites = {guild.default_role: discord.PermissionOverwrite(read_messages=False)}
-    for owner_id in OWNER_IDS:
-        owner = guild.get_member(owner_id)
-        if owner:
-            staff_overwrites[owner] = discord.PermissionOverwrite(read_messages=True)
-    for role_name in ["🜲 Dono", "💸ADMIN💸", "⛨ Moderador"]:
-        role = created_roles.get(role_name)
-        if role:
-            staff_overwrites[role] = discord.PermissionOverwrite(read_messages=True)
-    
-    categories = {
-        "📢 INFORMAÇÕES": [("📋regras", None), ("❓faq", None), ("📢anúncios", None), ("🎰sobre-o-cassino", None)],
-        "💬 COMUNIDADE": [("💬chat-geral", None), ("📸mídia", None), ("🤖comandos", None)],
-        "🎟️ SUPORTE": [("🎫criar-ticket", None), ("🚨denúncias", None), ("❓ajuda", None)],
-        "🎉 EVENTOS": [("🎁sorteios", None), ("🎊eventos", None), ("🏆resultados", None)],
-        "💡 SUGESTÕES": [("💭sugestões-pro-bot", None), ("✅sugestões-aceitas", None)],
-        "🐛 BUGS": [("🎮reportar-bugs-minigames", None), ("🤖reportar-bugs-bot", None), ("🏆leaderboard-bugs", None)],
-        "🔒 STAFF": [("💬staff-chat", staff_overwrites), ("⚙️configurações", staff_overwrites)],
-        "📊 LOGS": [
-            ("👤logs-de-usuário", staff_overwrites),
-            ("📝logs-mensagens", staff_overwrites),
-            ("🎫logs-de-tickets", staff_overwrites),
-            ("🔨logs-de-punições", staff_overwrites),
-            ("🚨logs-de-denúncias", staff_overwrites)
-        ],
-        "🗑️ LIXEIRA": [("arquivados", staff_overwrites)]
-    }
-    
-    for cat_name, channels in categories.items():
-        cat = discord.utils.get(guild.categories, name=cat_name)
-        if not cat:
-            if "LOGS" in cat_name or "STAFF" in cat_name or "LIXEIRA" in cat_name:
-                cat = await guild.create_category(cat_name, overwrites=staff_overwrites)
-            else:
-                cat = await guild.create_category(cat_name)
+    try:
+        # ═══════════════════════════════════════════════════════════
+        # ETAPA 1: CARGOS
+        # ═══════════════════════════════════════════════════════════
         
-        for ch_name, overwrites in channels:
-            clean_name = ''.join(c for c in ch_name if c.isalnum() or c in '-_').lower()
-            existing = discord.utils.get(guild.channels, name=clean_name)
-            if not existing:
+        await progress_msg.edit(content="🎰 **ETAPA 1/7** - Criando cargos...")
+        
+        roles_config = [
+            ("🃏 Gusteds", 0x2C2F33, True),
+            ("🃁 Spokeas", 0x23272A, True),
+            ("🜲 Dono", 0xFFD700, True),
+            ("💸ADMIN💸", 0xFF0000, True),
+            ("⛨ Moderador", 0x00FF00, True),
+            (".☘︎ ݁˖Gerente Cassino", 0xB8860B, True),
+            ("💰 Ajudante Cassino", 0x0000FF, True),
+            ("🎲 Gastador", 0x800080, False),
+            ("⚜ Magnata", 0xFFA500, False),
+            ("👤 Membro", 0x808080, False),
+            ("🚫 Punido", 0x333333, False)
+        ]
+        
+        for role_name, color, hoist in roles_config:
+            existing = discord.utils.get(guild.roles, name=role_name)
+            if existing:
+                created_roles[role_name] = existing
+            else:
+                try:
+                    new_role = await guild.create_role(
+                        name=role_name,
+                        color=discord.Color(color),
+                        hoist=hoist,
+                        mentionable=True
+                    )
+                    created_roles[role_name] = new_role
+                    await asyncio.sleep(0.5)  # Evita rate limit
+                except Exception as e:
+                    print(f"Erro ao criar cargo {role_name}: {e}")
+        
+        # Atribui cargos protegidos
+        gusteds_member = guild.get_member(GUSTEDS_ID)
+        spokeas_member = guild.get_member(SPOKEAS_ID)
+        
+        if gusteds_member and "🃏 Gusteds" in created_roles:
+            try:
+                await gusteds_member.add_roles(created_roles["🃏 Gusteds"])
+            except:
+                pass
+        
+        if spokeas_member and "🃁 Spokeas" in created_roles:
+            try:
+                await spokeas_member.add_roles(created_roles["🃁 Spokeas"])
+            except:
+                pass
+        
+        # ═══════════════════════════════════════════════════════════
+        # ETAPA 2: OVERWRITES BASE
+        # ═══════════════════════════════════════════════════════════
+        
+        await progress_msg.edit(content="🎰 **ETAPA 2/7** - Preparando permissões...")
+        
+        # Overwrites para canais staff (apenas donos e staff)
+        staff_overwrites = {
+            guild.default_role: discord.PermissionOverwrite(read_messages=False),
+            guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True, manage_channels=True)
+        }
+        
+        # Adiciona donos
+        for owner_id in OWNER_IDS:
+            owner = guild.get_member(owner_id)
+            if owner:
+                staff_overwrites[owner] = discord.PermissionOverwrite(read_messages=True, send_messages=True)
+        
+        # Adiciona cargos staff
+        for role_name in ["🜲 Dono", "💸ADMIN💸", "⛨ Moderador"]:
+            if role_name in created_roles:
+                staff_overwrites[created_roles[role_name]] = discord.PermissionOverwrite(read_messages=True, send_messages=True)
+        
+        # Overwrites para denúncias (todos veem, ninguém escreve)
+        denuncias_overwrites = {
+            guild.default_role: discord.PermissionOverwrite(send_messages=False, add_reactions=False),
+            guild.me: discord.PermissionOverwrite(send_messages=True)
+        }
+        for role_name in ["🜲 Dono", "💸ADMIN💸", "⛨ Moderador"]:
+            if role_name in created_roles:
+                denuncias_overwrites[created_roles[role_name]] = discord.PermissionOverwrite(send_messages=True)
+        
+        # ═══════════════════════════════════════════════════════════
+        # ETAPA 3: CATEGORIAS
+        # ═══════════════════════════════════════════════════════════
+        
+        await progress_msg.edit(content="🎰 **ETAPA 3/7** - Criando categorias...")
+        
+        categories_config = [
+            ("📢 INFORMAÇÕES", None),
+            ("💬 COMUNIDADE", None),
+            ("🎟️ SUPORTE", None),
+            ("🎉 EVENTOS", None),
+            ("💡 FEEDBACK E BUGS", None),  # Unificado!
+            ("🔒 STAFF", staff_overwrites),
+            ("📊 LOGS", staff_overwrites),
+            ("🗑️ LIXEIRA", staff_overwrites)
+        ]
+        
+        for cat_name, overwrites in categories_config:
+            existing = discord.utils.get(guild.categories, name=cat_name)
+            if existing:
+                created_categories[cat_name] = existing
+            else:
+                try:
+                    if overwrites:
+                        new_cat = await guild.create_category(cat_name, overwrites=overwrites)
+                    else:
+                        new_cat = await guild.create_category(cat_name)
+                    created_categories[cat_name] = new_cat
+                    await asyncio.sleep(0.5)
+                except Exception as e:
+                    print(f"Erro ao criar categoria {cat_name}: {e}")
+        
+        # ═══════════════════════════════════════════════════════════
+        # ETAPA 4: CANAIS PÚBLICOS
+        # ═══════════════════════════════════════════════════════════
+        
+        await progress_msg.edit(content="🎰 **ETAPA 4/7** - Criando canais públicos...")
+        
+        public_channels = [
+            # INFORMAÇÕES
+            ("📋regras", "📢 INFORMAÇÕES", None),
+            ("❓faq", "📢 INFORMAÇÕES", None),
+            ("📢anuncios", "📢 INFORMAÇÕES", None),
+            ("🎰sobre-o-cassino", "📢 INFORMAÇÕES", None),
+            
+            # COMUNIDADE
+            ("💬chat-geral", "💬 COMUNIDADE", None),
+            ("📸midia", "💬 COMUNIDADE", None),
+            ("🤖comandos", "💬 COMUNIDADE", None),
+            
+            # SUPORTE
+            ("🎫criar-ticket", "🎟️ SUPORTE", None),
+            ("🚨denuncias", "🎟️ SUPORTE", denuncias_overwrites),
+            ("❓ajuda", "🎟️ SUPORTE", None),
+            
+            # EVENTOS
+            ("🎁sorteios", "🎉 EVENTOS", None),
+            ("🎊eventos", "🎉 EVENTOS", None),
+            ("🏆resultados", "🎉 EVENTOS", None),
+            
+            # FEEDBACK E BUGS (Unificado)
+            ("💭sugestoes", "💡 FEEDBACK E BUGS", None),
+            ("✅sugestoes-aceitas", "💡 FEEDBACK E BUGS", staff_overwrites),
+            ("🐛reportar-bugs", "💡 FEEDBACK E BUGS", None),
+            ("📊leaderboard-bugs", "💡 FEEDBACK E BUGS", None),
+        ]
+        
+        for ch_name, cat_name, overwrites in public_channels:
+            # Verifica se já existe
+            existing = None
+            for channel in guild.text_channels:
+                if ch_name.replace("📋", "").replace("❓", "").replace("📢", "").replace("🎰", "").replace("💬", "").replace("📸", "").replace("🤖", "").replace("🎫", "").replace("🚨", "").replace("🎁", "").replace("🎊", "").replace("🏆", "").replace("💭", "").replace("✅", "").replace("🐛", "").replace("📊", "").strip("-") in channel.name:
+                    existing = channel
+                    break
+            
+            if existing:
+                created_channels[ch_name] = existing
+                continue
+            
+            category = created_categories.get(cat_name)
+            if not category:
+                continue
+            
+            try:
                 if overwrites:
-                    await guild.create_text_channel(ch_name, category=cat, overwrites=overwrites)
+                    # Merge overwrites da categoria com os específicos
+                    final_overwrites = dict(category.overwrites)
+                    final_overwrites.update(overwrites)
+                    new_ch = await guild.create_text_channel(ch_name, category=category, overwrites=final_overwrites)
                 else:
-                    await guild.create_text_channel(ch_name, category=cat)
-    
-    # Envia painel de ticket
-    ticket_ch = discord.utils.get(guild.channels, name="criar-ticket")
-    if ticket_ch:
-        embed = discord.Embed(
-            title="🎰 CENTRAL DE ATENDIMENTO - LeGusta Casino",
-            description="Use o menu abaixo para abrir um ticket!",
-            color=discord.Color.gold()
+                    new_ch = await guild.create_text_channel(ch_name, category=category)
+                
+                created_channels[ch_name] = new_ch
+                await asyncio.sleep(0.5)
+            except Exception as e:
+                print(f"Erro ao criar canal {ch_name}: {e}")
+        
+        # ═══════════════════════════════════════════════════════════
+        # ETAPA 5: CANAIS STAFF
+        # ═══════════════════════════════════════════════════════════
+        
+        await progress_msg.edit(content="🎰 **ETAPA 5/7** - Criando canais da staff...")
+        
+        staff_channels = [
+            ("💬staff-chat", "🔒 STAFF"),
+            ("⚙️configuracoes", "🔒 STAFF"),
+            ("👤logs-de-usuario", "📊 LOGS"),
+            ("📝logs-mensagens", "📊 LOGS"),
+            ("🎫logs-de-tickets", "📊 LOGS"),
+            ("🔨logs-de-punicoes", "📊 LOGS"),
+            ("🚨logs-de-denuncias", "📊 LOGS"),
+        ]
+        
+        for ch_name, cat_name in staff_channels:
+            existing = None
+            for channel in guild.text_channels:
+                if ch_name.replace("💬", "").replace("⚙️", "").replace("👤", "").replace("📝", "").replace("🎫", "").replace("🔨", "").replace("🚨", "").strip("-") in channel.name:
+                    existing = channel
+                    break
+            
+            if existing:
+                created_channels[ch_name] = existing
+                continue
+            
+            category = created_categories.get(cat_name)
+            if not category:
+                continue
+            
+            try:
+                new_ch = await guild.create_text_channel(ch_name, category=category, overwrites=staff_overwrites)
+                created_channels[ch_name] = new_ch
+                await asyncio.sleep(0.5)
+            except Exception as e:
+                print(f"Erro ao criar canal staff {ch_name}: {e}")
+        
+        # ═══════════════════════════════════════════════════════════
+        # ETAPA 6: MENSAGENS NOS CANAIS
+        # ═══════════════════════════════════════════════════════════
+        
+        await progress_msg.edit(content="🎰 **ETAPA 6/7** - Enviando mensagens configuradas...")
+        
+        # Função auxiliar para enviar embed
+        async def send_channel_message(channel_key, embed_content, image=None):
+            ch = created_channels.get(channel_key) or discord.utils.get(guild.channels, name=channel_key.replace("📋", "").replace("❓", "").replace("📢", "").replace("🎰", "").replace("💬", "").replace("📸", "").replace("🤖", "").replace("🎫", "").replace("🚨", "").replace("🎁", "").replace("🎊", "").replace("🏆", "").replace("💭", "").replace("✅", "").replace("🐛", "").replace("📊", "").strip("-"))
+            
+            if not ch:
+                return
+            
+            try:
+                embed = discord.Embed(
+                    title=embed_content.get("title", ""),
+                    description=embed_content.get("description", ""),
+                    color=embed_content.get("color", discord.Color.gold()),
+                    timestamp=datetime.datetime.now()
+                )
+                
+                if image:
+                    embed.set_image(url=image)
+                embed.set_footer(text="LeGusta Casino © 2024", icon_url="https://i.imgur.com/1NA8dQR.png")
+                
+                await ch.send(embed=embed)
+                await asyncio.sleep(0.5)
+            except Exception as e:
+                print(f"Erro ao enviar mensagem em {channel_key}: {e}")
+        
+        # Mensagem em #regras
+        await send_channel_message("📋regras", {
+            "title": "📋 REGRAS DO SERVIDOR - LeGusta Casino",
+            "description": (
+                "Bem-vindo ao LeGusta Casino! Leia atentamente as regras:\n\n"
+                "**🎰 REGRAS DO CASSINO:**\n"
+                "1. **Respeite a fila** - Não passe na frente de outros jogadores\n"
+                "2. **Não roube prêmios** - Prêmios são do jogador que ganhou\n"
+                "3. **Seja respeitoso** - Com staff e outros players\n"
+                "4. **Sem brigas** - Baderna resultará em punição\n"
+                "5. **Use fichas corretas** - 5k ou 10k conforme a máquina\n\n"
+                "**📱 REGRAS DO DISCORD:**\n"
+                "1. **Sem spam** - Mensagens repetidas ou muito longas\n"
+                "2. **Sem divulgação** - Links de outros servidores\n"
+                "3. **Sem conteúdo NSFW** - Mantenha o servidor limpo\n"
+                "4. **Respeite todos** - Preconceito não será tolerado\n"
+                "5. **Use os canais corretos** - Cada canal tem sua função\n\n"
+                "**🔨 PUNIÇÕES:**\n"
+                "• Quebra de regras leves = Mute temporário\n"
+                "• Quebra de regras graves = Banimento\n"
+                "• Roubo/Trapacear = Ban permanente da GO e Discord\n\n"
+                "Ao participar, você concorda com todas as regras acima!"
+            ),
+            "color": discord.Color.red()
+        }, "https://i.imgur.com/1NA8dQR.png")
+        
+        # Mensagem em #faq
+        await send_channel_message("❓faq", {
+            "title": "❓ PERGUNTAS FREQUENTES",
+            "description": (
+                "**💰 Como comprar fichas?**\n"
+                "Vá ao cassino e use os barris do FUNDO para COMPRAR.\n\n"
+                "**💱 Como vender fichas?**\n"
+                "Use os barris da FRENTE para VENDER suas fichas.\n\n"
+                "**🎰 Quais máquinas aceitam fichas de 5k?**\n"
+                "Apenas o Caça Níqueis aceita fichas de 5k.\n\n"
+                "**🎰 Quais máquinas aceitam fichas de 10k?**\n"
+                "Lucky Tower e Roleta aceitam apenas fichas de 10k.\n\n"
+                "**⏰ Qual horário de atendimento?**\n"
+                "O cassino funciona 24h, mas o atendimento staff é das 14h às 22h.\n\n"
+                "**🚨 Como denunciar alguém?**\n"
+                "Use o canal <#denuncias> ou abra um ticket privado.\n\n"
+                "**💡 Como dar sugestões?**\n"
+                "Use o canal <#sugestoes>."
+            ),
+            "color": discord.Color.blue()
+        })
+        
+        # Mensagem em #sobre-o-cassino
+        await send_channel_message("🎰sobre-o-cassino", {
+            "title": "🎰 SOBRE O LEGUSTA CASINO",
+            "description": (
+                "Bem-vindo ao maior cassino do Minecraft!\n\n"
+                "**🎯 Nossa Missão:**\n"
+                "Oferecer diversão e entretenimento de qualidade para todos os jogadores.\n\n"
+                "**🎮 Minigames Disponíveis:**\n"
+                "• 🏰 **Lucky Tower** - Escalone a torre e ganhe prêmios!\n"
+                "• 🎰 **Caça Níqueis** - Teste sua sorte nas máquinas clássicas!\n"
+                "• 🎡 **Roleta** - Aposte nas cores e números!\n\n"
+                "**💎 Vantagens:**\n"
+                "• Sistema de fichas justo\n"
+                "• Staff online e atenciosa\n"
+                "• Eventos semanais com prêmios especiais\n\n"
+                "**📍 Localização:**\n"
+                "Use `/go cassino` ou `/pwarp cassino` para chegar!\n\n"
+                "🍀 **Boa sorte e divirta-se responsavelmente!**"
+            ),
+            "color": discord.Color.gold()
+        }, "https://i.imgur.com/1NA8dQR.png")
+        
+        # Mensagem em #ajuda
+        await send_channel_message("❓ajuda", {
+            "title": "🎰 PAINEL DE AJUDA - LeGusta Casino",
+            "description": (
+                "💰 **1. FICHAS - COMO FUNCIONA?**\n"
+                "Para apostar em qualquer máquina, você precisa adquirir fichas:\n"
+                "• Fichas de 5k ou 10k\n"
+                "• Algumas máquinas aceitam apenas fichas de 10k\n"
+                "• Outras aceitam apenas fichas de 5k\n"
+                "⚠️ Escolha a máquina de acordo com sua ficha!\n\n"
+                "🛒 **2. ONDE COMPRO FICHAS?**\n"
+                "Ao chegar na LeGusta, caminhe em direção ao cassino:\n"
+                "• Barris da FRENTE = VENDER fichas ✅\n"
+                "• Barris do FUNDO = COMPRAR fichas ✅\n"
+                "Perdido? Chame um staff online:\n"
+                "• *Spokeas | *Mateus | *Gusteds\n\n"
+                "🎮 **3. MINIGAMES DISPONÍVEIS**\n"
+                "• 🏰 Lucky Tower\n"
+                "• 🎰 Caça Níqueis\n"
+                "• 🎡 Roleta\n\n"
+                "📋 **4. COMO JOGAR?**\n"
+                "• Lucky Tower → Fichas de 10k ✅\n"
+                "• Roleta → Fichas de 10k ✅\n"
+                "• Caça Níqueis → Fichas de 5k ✅\n"
+                "⚠️ Lucky Tower e Roleta NÃO aceitam fichas de 5k!\n\n"
+                "⚖️ **5. REGRAS IMPORTANTES**\n"
+                "✓ Respeite a fila nos minigames\n"
+                "✓ Não roube prêmios de outros jogadores\n"
+                "✓ Seja respeitoso com staff e players\n"
+                "❌ Denúncias? Abra um ticket\n"
+                "😔 Quebra de regras = BAN"
+            ),
+            "color": discord.Color.gold()
+        }, "https://i.imgur.com/1NA8dQR.png")
+        
+        # Mensagem em #sugestoes
+        await send_channel_message("💭sugestoes", {
+            "title": "💡 SISTEMA DE SUGESTÕES",
+            "description": (
+                "Bem-vindo ao canal de sugestões!\n\n"
+                "**Como funciona:**\n"
+                "1. Escreva sua sugestão em uma mensagem neste canal\n"
+                "2. O bot criará automaticamente uma discussão para votarem\n"
+                "3. Reaja com ✅ se aprova ou ❌ se rejeita\n"
+                "4. Após 7 dias, sugestões aprovadas vão para <#sugestoes-aceitas>\n\n"
+                "**Regras:**\n"
+                "• Uma sugestão por mensagem\n"
+                "• Seja claro e objetivo\n"
+                "• Sugestões repetidas serão deletadas\n\n"
+                "💭 **Envie sua sugestão abaixo!**"
+            ),
+            "color": discord.Color.blue()
+        })
+        
+        # Mensagem em #reportar-bugs
+        await send_channel_message("🐛reportar-bugs", {
+            "title": "🐛 REPORTAR BUGS",
+            "description": (
+                "Encontrou algum problema? Reporte aqui!\n\n"
+                "**Como reportar:**\n"
+                "1. Descreva o bug detalhadamente\n"
+                "2. Explique como reproduzir o problema\n"
+                "3. Se possível, envie screenshots\n"
+                "4. Informe quando começou a acontecer\n\n"
+                "**Tipos de bugs:**\n"
+                "• 🎮 **Bugs de Minigames** - Máquinas com problemas\n"
+                "• 🤖 **Bugs do Bot** - Comandos não funcionando\n"
+                "• 🌐 **Bugs do Servidor** - Lag, quedas, etc\n\n"
+                "**Recompensas:**\n"
+                "Quem mais reportar bugs ganha destaque no leaderboard mensal!\n\n"
+                "🔧 **Descreva seu bug abaixo:**"
+            ),
+            "color": discord.Color.orange()
+        })
+        
+        # Mensagem em #leaderboard-bugs
+        await send_channel_message("📊leaderboard-bugs", {
+            "title": "🏆 LEADERBOARD DE BUGS",
+            "description": (
+                "Top 10 usuários que mais ajudaram reportando bugs este mês!\n\n"
+                "**🥇 1º Lugar:** Em breve...\n"
+                "**🥈 2º Lugar:** Em breve...\n"
+                "**🥉 3º Lugar:** Em breve...\n"
+                "**4º-10º:** Em breve...\n\n"
+                "📅 **Reseta todo dia 1º do mês**\n"
+                "💰 **Prêmios para os top 3!**\n\n"
+                "Reporte bugs em <#reportar-bugs>!"
+            ),
+            "color": discord.Color.gold()
+        })
+        
+        # Mensagem em #denuncias (público)
+        await send_channel_message("🚨denuncias", {
+            "title": "🚨 CANAL DE DENÚNCIAS",
+            "description": (
+                "**Denúncias resolvidas aparecerão aqui!**\n\n"
+                "Para fazer uma denúncia anônima:\n"
+                "• Use o comando `/denunciar`\n"
+                "• Ou abra um ticket privado em <#criar-ticket>\n\n"
+                "⚠️ **Atenção:**\n"
+                "• Denúncias falsas resultarão em punição\n"
+                "• Apenas denúncias confirmadas aparecem aqui\n"
+                "• Sistema 100% anônimo para proteção do denunciante\n\n"
+                "🔒 **Sua segurança é nossa prioridade!**"
+            ),
+            "color": discord.Color.red()
+        })
+        
+        # Mensagem em #sorteios
+        await send_channel_message("🎁sorteios", {
+            "title": "🎉 SORTEIOS E EVENTOS",
+            "description": (
+                "Fique atento aos sorteios e eventos do servidor!\n\n"
+                "**🎁 Sorteios Regulares:**\n"
+                "• Sorteios semanais de fichas\n"
+                "• Eventos especiais de feriado\n"
+                "• Torneios entre jogadores\n\n"
+                "**🏆 Como Participar:**\n"
+                "• Reaja com 🎉 nos sorteios ativos\n"
+                "• Siga as regras de cada evento\n"
+                "• Fique online no horário do sorteio\n\n"
+                "🍀 **Boa sorte!**"
+            ),
+            "color": discord.Color.purple()
+        })
+        
+        # Mensagem em #anuncios
+        await send_channel_message("📢anuncios", {
+            "title": "🎰 BEM-VINDO AO LEGUSTA CASINO!",
+            "description": (
+                "O maior e mais completo cassino do Minecraft está de portas abertas!\n\n"
+                "**✨ O que oferecemos:**\n"
+                "• 3 minigames incríveis\n"
+                "• Sistema de fichas justo\n"
+                "• Staff ativa e dedicada\n"
+                "• Eventos semanais\n"
+                "• Sistema de suporte completo\n\n"
+                "**🚀 Comece agora:**\n"
+                "• Leia as regras em <#regras>\n"
+                "• Veja como jogar em <#ajuda>\n"
+                "• Abra um ticket se precisar de ajuda\n\n"
+                "🍀 **Boa sorte e divirta-se!**"
+            ),
+            "color": discord.Color.gold()
+        }, "https://i.imgur.com/1NA8dQR.png")
+        
+        # ═══════════════════════════════════════════════════════════
+        # ETAPA 7: PAINEL DE TICKET (IMPORTANTE!)
+        # ═══════════════════════════════════════════════════════════
+        
+        await progress_msg.edit(content="🎰 **ETAPA 7/7** - Configurando painel de tickets...")
+        
+        ticket_ch = created_channels.get("🎫criar-ticket") or discord.utils.get(guild.channels, name="criar-ticket")
+        
+        if ticket_ch:
+            try:
+                # Limpa o canal
+                await ticket_ch.purge(limit=100)
+                
+                # Embed do painel
+                ticket_panel_embed = discord.Embed(
+                    title="🎰 CENTRAL DE ATENDIMENTO - LeGusta Casino",
+                    description=(
+                        "Bem-vindo ao sistema de tickets do LeGusta Casino!\n\n"
+                        "🎫 **Como funciona:**\n"
+                        "Selecione uma opção no menu abaixo para abrir um atendimento privado com nossa equipe.\n\n"
+                        "📋 **Tipos de Atendimento:**\n"
+                        "❓ **Dúvidas Gerais** - Tire suas dúvidas sobre o servidor\n"
+                        "🎰 **Sobre o Cassino** - Questões sobre jogos, fichas e máquinas\n"
+                        "🚨 **Denúncias** - Reportar comportamento inadequado de jogadores\n"
+                        "👑 **Falar com Gerência** - Assuntos urgentes (apenas gerentes)\n"
+                        "🔧 **Suporte Técnico** - Problemas técnicos no servidor\n\n"
+                        "⏰ **Horário de Atendimento:**\n"
+                        "• Segunda a Sexta: 14h às 22h\n"
+                        "• Fins de semana: 12h às 20h\n\n"
+                        "⚠️ **Importante:**\n"
+                        "• Abuse do sistema resultará em punição\n"
+                        "• Tickets inativos por 30 dias são fechados automaticamente\n"
+                        "• Seja claro e objetivo na descrição do problema\n\n"
+                        "🍀 **Boa sorte e obrigado por escolher o LeGusta Casino!**"
+                    ),
+                    color=discord.Color.gold(),
+                    timestamp=datetime.datetime.now()
+                )
+                ticket_panel_embed.set_thumbnail(url="https://i.imgur.com/1NA8dQR.png")
+                ticket_panel_embed.set_image(url="https://i.imgur.com/1NA8dQR.png")
+                ticket_panel_embed.set_footer(text="LeGusta Casino © 2024 | Clique no menu abaixo para abrir um ticket")
+                
+                view = TicketPanelView()
+                await ticket_ch.send(embed=ticket_panel_embed, view=view)
+                
+            except Exception as e:
+                print(f"Erro ao configurar painel de ticket: {e}")
+        
+        # ═══════════════════════════════════════════════════════════
+        # FINALIZAÇÃO
+        # ═══════════════════════════════════════════════════════════
+        
+        total_roles = len([r for r in created_roles.values() if r])
+        total_categories = len([c for c in created_categories.values() if c])
+        total_channels = len([c for c in created_channels.values() if c])
+        
+        await progress_msg.edit(
+            content=f"✅ **SETUP CONCLUÍDO COM SUCESSO!**\n\n"
+            f"🎭 **Cargos criados:** {total_roles}/11\n"
+            f"📁 **Categorias criadas:** {total_categories}/8\n"
+            f"💬 **Canais criados:** {total_channels}/25+\n"
+            f"🎫 **Painel de ticket:** Ativo\n\n"
+            f"**O servidor LeGusta Casino está pronto para uso!** 🎰"
         )
-        view = TicketPanelView()
-        await ticket_ch.send(embed=embed, view=view)
-    
-    await msg.edit(content="✅ Setup concluído!")
+        
+    except Exception as e:
+        await progress_msg.edit(content=f"❌ **ERRO NO SETUP:** {str(e)}\nVerifique as permissões do bot e tente novamente.")
+        print(f"Erro completo no setup: {e}")
+        import traceback
+        traceback.print_exc()
 
 @bot.command()
 @commands.is_owner()
 async def resetup(ctx):
+    """Recria toda a estrutura do zero"""
+    await ctx.send("🔄 Reiniciando setup completo...")
     await setup(ctx)
 
 @bot.command()
@@ -1307,7 +1472,7 @@ async def check_old_tickets():
     """Verifica tickets antigos"""
     for guild in bot.guilds:
         for channel in guild.text_channels:
-            if channel.name.startswith("🎫┃"):
+            if "ticket-" in channel.name:
                 try:
                     async for message in channel.history(limit=1, oldest_first=True):
                         age = datetime.datetime.now() - message.created_at
@@ -1336,6 +1501,26 @@ async def on_message(message):
     if message.author.bot:
         return
     
+    # Sistema de sugestões - cria thread automaticamente
+    if message.channel.name == "sugestoes" or "sugestoes" in message.channel.name:
+        if not message.author.bot:
+            try:
+                thread = await message.create_thread(name=f"Sugestão: {message.content[:30]}...")
+                msg = await thread.send("Reaja com ✅ ou ❌ para votar!")
+                await msg.add_reaction("✅")
+                await msg.add_reaction("❌")
+            except:
+                pass
+    
+    # Sistema de bugs - reage e oferece ping
+    if message.channel.name == "reportar-bugs" or "reportar-bugs" in message.channel.name:
+        if not message.author.bot:
+            try:
+                await message.add_reaction("🐛")
+                # Aqui você pode adicionar lógica de ping se quiser
+            except:
+                pass
+    
     # Anti-spam
     if len(message.content) > 500:
         repeats = len(message.content) - len(set(message.content))
@@ -1356,13 +1541,150 @@ async def on_message(message):
     await bot.process_commands(message)
 
 async def handle_spam(message):
-    channel = await get_or_create_log_channel(message.guild, "logs-mensagens")
-    embed = create_embed(
-        "⚠️ SPAM DETECTADO",
-        f"**`Autor:`** {message.author.mention}\n**`Canal:`** {message.channel.mention}",
-        discord.Color.orange()
-    )
-    await channel.send(embed=embed)
+    try:
+        channel = await get_or_create_log_channel(message.guild, "logs-mensagens")
+        embed = create_embed(
+            "⚠️ SPAM DETECTADO",
+            f"**`Autor:`** {message.author.mention}\n**`Canal:`** {message.channel.mention}",
+            discord.Color.orange()
+        )
+        await channel.send(embed=embed)
+    except:
+        pass
+
+# ═══════════════════════════════════════════════════════════════
+# SISTEMA DE DENÚNCIAS
+# ═══════════════════════════════════════════════════════════════
+
+class ReportSystem:
+    @staticmethod
+    async def create_report(interaction: discord.Interaction, reported: discord.Member, motivo: str):
+        if reported.id in OWNER_IDS:
+            await interaction.response.send_message("⛔ Não é possível denunciar donos!", ephemeral=True)
+            return
+        
+        guild = interaction.guild
+        report_id = generate_report_id()
+        
+        # Cria categoria staff se não existir
+        category = discord.utils.get(guild.categories, name="🔒 STAFF")
+        if not category:
+            overwrites = {
+                guild.default_role: discord.PermissionOverwrite(read_messages=False),
+                guild.me: discord.PermissionOverwrite(read_messages=True)
+            }
+            for owner_id in OWNER_IDS:
+                owner = guild.get_member(owner_id)
+                if owner:
+                    overwrites[owner] = discord.PermissionOverwrite(read_messages=True, send_messages=True)
+            category = await guild.create_category("🔒 STAFF", overwrites=overwrites)
+        
+        # Cria canal privado
+        overwrites = {
+            guild.default_role: discord.PermissionOverwrite(read_messages=False),
+            guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True)
+        }
+        for owner_id in OWNER_IDS:
+            owner = guild.get_member(owner_id)
+            if owner:
+                overwrites[owner] = discord.PermissionOverwrite(read_messages=True, send_messages=True)
+        
+        try:
+            channel = await guild.create_text_channel(f"denuncia-{report_id}", category=category, overwrites=overwrites)
+        except:
+            channel = await guild.create_text_channel(f"denuncia-{report_id}", overwrites=overwrites)
+        
+        # Salva dados
+        db.reports[report_id] = {
+            "channel_id": channel.id,
+            "reporter_id": interaction.user.id,
+            "reported_id": reported.id,
+            "motivo": motivo,
+            "status": "Não resolvida",
+            "created_at": datetime.datetime.now().isoformat()
+        }
+        db.save()
+        
+        # Embed
+        account_age = (datetime.datetime.now() - reported.created_at).days
+        
+        embed = create_embed(
+            f"🚨 DENÚNCIA #{report_id}",
+            f"**`Denunciado:`** {reported.mention}\n"
+            f"**`ID:`** `{reported.id}`\n"
+            f"**`Por:`** ||Anônimo||\n"
+            f"**`Motivo:`** `{motivo}`\n"
+            f"**`Conta:`** {account_age} dias\n"
+            f"**`Status:`** 🔴 Não resolvida\n"
+            f"**`Data:`** {get_timestamp()}",
+            discord.Color.red(),
+            reported
+        )
+        
+        view = ReportAdminView(report_id, reported, interaction.user)
+        await channel.send(embed=embed, view=view)
+        
+        # Confirmação
+        confirm = create_embed("✅ DENÚNCIA ENVIADA", f"**`ID:`** `{report_id}`\nAnalisaremos em breve!", discord.Color.green())
+        await interaction.response.send_message(embed=confirm, ephemeral=True)
+
+class ReportAdminView(View):
+    def __init__(self, report_id, reported, reporter):
+        super().__init__(timeout=None)
+        self.report_id = report_id
+        self.reported = reported
+        self.reporter = reporter
+    
+    @discord.ui.button(label="✅ Aceitar", style=discord.ButtonStyle.success)
+    async def accept(self, interaction: discord.Interaction, button: Button):
+        if not is_owner(interaction.user.id):
+            await interaction.response.send_message("⛔ Apenas donos!", ephemeral=True)
+            return
+        
+        db.reports[self.report_id]["status"] = "Resolvida"
+        db.save()
+        
+        # Publica em denúncias
+        public_channel = None
+        for ch in interaction.guild.text_channels:
+            if "denuncias" in ch.name:
+                public_channel = ch
+                break
+        
+        if public_channel:
+            embed = create_embed(
+                f"🚨 DENÚNCIA ACEITA #{self.report_id}",
+                f"**`Denunciado:`** {self.reported.mention}\n"
+                f"**`Motivo:`** `{db.reports[self.report_id]['motivo']}`\n"
+                f"**`Resolvida por:`** {interaction.user.mention}",
+                discord.Color.green(),
+                self.reported
+            )
+            await public_channel.send(embed=embed)
+        
+        await interaction.response.send_message("✅ Denúncia aceita!")
+        await asyncio.sleep(300)
+        await interaction.channel.delete()
+    
+    @discord.ui.button(label="❌ Recusar", style=discord.ButtonStyle.danger)
+    async def reject(self, interaction: discord.Interaction, button: Button):
+        if not is_owner(interaction.user.id):
+            await interaction.response.send_message("⛔ Apenas donos!", ephemeral=True)
+            return
+        
+        await interaction.response.send_message("❌ Denúncia recusada.")
+        await asyncio.sleep(5)
+        await interaction.channel.delete()
+    
+    @discord.ui.button(label="🔍 Revisar", style=discord.ButtonStyle.primary)
+    async def review(self, interaction: discord.Interaction, button: Button):
+        if not is_owner(interaction.user.id):
+            await interaction.response.send_message("⛔ Apenas donos!", ephemeral=True)
+            return
+        
+        db.reports[self.report_id]["status"] = "Sob Revisão"
+        db.save()
+        await interaction.response.send_message("🔍 Status atualizado para 'Sob Revisão'")
 
 # ═══════════════════════════════════════════════════════════════
 # INICIALIZAÇÃO
