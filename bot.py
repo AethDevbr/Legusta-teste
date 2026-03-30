@@ -1,5 +1,5 @@
 # bot.py - LeGusta Casino Bot
-# Versão Final Corrigida - Setup Funcionando 100%
+# Versão Final 2026 - Atualizado
 # Python 3.11.9 | discord.py 2.3.2
 
 import os
@@ -97,7 +97,7 @@ def get_timestamp():
 
 def create_embed(title: str, description: str = "", color: discord.Color = discord.Color.gold(), 
                  author: discord.Member = None, thumbnail: str = None, image: str = None,
-                 footer_text: str = "LeGusta Casino © 2024"):
+                 footer_text: str = "LeGusta Casino © 2026"):
     """Cria embed estilo cassino"""
     embed = discord.Embed(
         title=f"🎰 {title}",
@@ -159,12 +159,10 @@ async def on_ready():
 
 async def get_or_create_log_channel(guild, channel_name):
     """Busca ou cria canal de log"""
-    # Procura por nome exato ou similar
     for channel in guild.text_channels:
         if channel.name == channel_name or channel_name in channel.name:
             return channel
     
-    # Cria categoria se não existir
     category = discord.utils.get(guild.categories, name="📊 LOGS")
     if not category:
         overwrites = {
@@ -182,7 +180,6 @@ async def get_or_create_log_channel(guild, channel_name):
             print(f"Erro ao criar categoria LOGS: {e}")
             category = None
     
-    # Cria canal
     try:
         if category:
             channel = await guild.create_text_channel(channel_name, category=category)
@@ -289,7 +286,6 @@ async def on_member_join(member):
     except Exception as e:
         print(f"Erro ao logar join: {e}")
     
-    # Cargo automático
     try:
         membro_role = discord.utils.get(member.guild.roles, name="👤 Membro")
         if membro_role:
@@ -418,7 +414,6 @@ async def create_ticket(interaction: discord.Interaction, ticket_type: str):
     
     type_name = type_names.get(ticket_type, "🎫 Suporte")
     
-    # Verifica se já tem ticket aberto
     for channel in guild.text_channels:
         if channel.topic and str(user.id) in channel.topic and "Aguardando" in channel.topic:
             await interaction.response.send_message(
@@ -427,14 +422,12 @@ async def create_ticket(interaction: discord.Interaction, ticket_type: str):
             )
             return
     
-    # Busca categoria
     category = discord.utils.get(guild.categories, name="🎟️ SUPORTE")
     if not category:
         category = await guild.create_category("🎟️ SUPORTE")
     
     ticket_id = generate_ticket_id()
     
-    # Busca cargos staff
     staff_roles = []
     ping_roles = []
     for role_name in ["🜲 Dono", "💸ADMIN💸", "⛨ Moderador", ".☘︎ ݁˖Gerente Cassino", "💰 Ajudante Cassino"]:
@@ -444,7 +437,6 @@ async def create_ticket(interaction: discord.Interaction, ticket_type: str):
             if role_name in ["🜲 Dono", ".☘︎ ݁˖Gerente Cassino", "💸ADMIN💸"]:
                 ping_roles.append(role)
     
-    # Permissões
     overwrites = {
         guild.default_role: discord.PermissionOverwrite(read_messages=False),
         user: discord.PermissionOverwrite(read_messages=True, send_messages=True, attach_files=True, embed_links=True),
@@ -454,7 +446,6 @@ async def create_ticket(interaction: discord.Interaction, ticket_type: str):
     for role in staff_roles:
         overwrites[role] = discord.PermissionOverwrite(read_messages=True, send_messages=True, manage_messages=True, manage_channels=True)
     
-    # Cria canal
     channel = await guild.create_text_channel(
         f"ticket-{user.name}",
         category=category,
@@ -462,7 +453,6 @@ async def create_ticket(interaction: discord.Interaction, ticket_type: str):
         topic=f"Ticket #{ticket_id} | Tipo: {ticket_type} | UserID: {user.id} | Status: Aguardando staff..."
     )
     
-    # Salva dados
     db.tickets[channel.id] = {
         "id": ticket_id,
         "user_id": user.id,
@@ -475,7 +465,6 @@ async def create_ticket(interaction: discord.Interaction, ticket_type: str):
     }
     db.save()
     
-    # MENSAGEM DE ATENDIMENTO
     welcome_embed = discord.Embed(
         title=f"🎰 BEM-VINDO AO ATENDIMENTO - LeGusta Casino",
         description=(
@@ -506,7 +495,7 @@ async def create_ticket(interaction: discord.Interaction, ticket_type: str):
     )
     welcome_embed.set_thumbnail(url=user.display_avatar.url)
     welcome_embed.set_image(url="https://i.imgur.com/1NA8dQR.png")
-    welcome_embed.set_footer(text="LeGusta Casino © 2024 | Sistema de Tickets", icon_url="https://i.imgur.com/1NA8dQR.png")
+    welcome_embed.set_footer(text="LeGusta Casino © 2026 | Sistema de Tickets", icon_url="https://i.imgur.com/1NA8dQR.png")
     
     view = TicketControlView(ticket_id, user.id, channel.id)
     
@@ -724,7 +713,7 @@ async def slash_ticket(interaction: discord.Interaction):
     )
     embed.set_thumbnail(url="https://i.imgur.com/1NA8dQR.png")
     embed.set_image(url="https://i.imgur.com/1NA8dQR.png")
-    embed.set_footer(text="LeGusta Casino © 2024 | Clique no menu abaixo para abrir um ticket")
+    embed.set_footer(text="LeGusta Casino © 2026 | Clique no menu abaixo para abrir um ticket")
     
     view = TicketPanelView()
     
@@ -789,6 +778,7 @@ Perdido? Chame um staff online:
         color=discord.Color.gold()
     )
     embed.set_image(url="https://i.imgur.com/1NA8dQR.png")
+    embed.set_footer(text="LeGusta Casino © 2026")
     await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="sorteio", description="🎉 Iniciar um sorteio")
@@ -897,13 +887,13 @@ class Moderation(commands.Cog):
             pass
 
 # ═══════════════════════════════════════════════════════════════
-# SETUP CORRIGIDO E FUNCIONANDO
+# SETUP COMPLETO ATUALIZADO 2026
 # ═══════════════════════════════════════════════════════════════
 
 @bot.command()
 @commands.is_owner()
 async def setup(ctx):
-    """Setup COMPLETO - Cria tudo passo a passo com verificação"""
+    """Setup COMPLETO - Cria tudo com menções de canais corretas"""
     guild = ctx.guild
     
     progress_msg = await ctx.send("🎰 **SETUP INICIADO** - Preparando estrutura...")
@@ -946,7 +936,7 @@ async def setup(ctx):
                         mentionable=True
                     )
                     created_roles[role_name] = new_role
-                    await asyncio.sleep(0.5)  # Evita rate limit
+                    await asyncio.sleep(0.5)
                 except Exception as e:
                     print(f"Erro ao criar cargo {role_name}: {e}")
         
@@ -972,24 +962,20 @@ async def setup(ctx):
         
         await progress_msg.edit(content="🎰 **ETAPA 2/7** - Preparando permissões...")
         
-        # Overwrites para canais staff (apenas donos e staff)
         staff_overwrites = {
             guild.default_role: discord.PermissionOverwrite(read_messages=False),
             guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True, manage_channels=True)
         }
         
-        # Adiciona donos
         for owner_id in OWNER_IDS:
             owner = guild.get_member(owner_id)
             if owner:
                 staff_overwrites[owner] = discord.PermissionOverwrite(read_messages=True, send_messages=True)
         
-        # Adiciona cargos staff
         for role_name in ["🜲 Dono", "💸ADMIN💸", "⛨ Moderador"]:
             if role_name in created_roles:
                 staff_overwrites[created_roles[role_name]] = discord.PermissionOverwrite(read_messages=True, send_messages=True)
         
-        # Overwrites para denúncias (todos veem, ninguém escreve)
         denuncias_overwrites = {
             guild.default_role: discord.PermissionOverwrite(send_messages=False, add_reactions=False),
             guild.me: discord.PermissionOverwrite(send_messages=True)
@@ -1009,7 +995,7 @@ async def setup(ctx):
             ("💬 COMUNIDADE", None),
             ("🎟️ SUPORTE", None),
             ("🎉 EVENTOS", None),
-            ("💡 FEEDBACK E BUGS", None),  # Unificado!
+            ("💡 FEEDBACK E BUGS", None),
             ("🔒 STAFF", staff_overwrites),
             ("📊 LOGS", staff_overwrites),
             ("🗑️ LIXEIRA", staff_overwrites)
@@ -1037,41 +1023,27 @@ async def setup(ctx):
         await progress_msg.edit(content="🎰 **ETAPA 4/7** - Criando canais públicos...")
         
         public_channels = [
-            # INFORMAÇÕES
-            ("📋regras", "📢 INFORMAÇÕES", None),
-            ("❓faq", "📢 INFORMAÇÕES", None),
-            ("📢anuncios", "📢 INFORMAÇÕES", None),
-            ("🎰sobre-o-cassino", "📢 INFORMAÇÕES", None),
-            
-            # COMUNIDADE
-            ("💬chat-geral", "💬 COMUNIDADE", None),
-            ("📸midia", "💬 COMUNIDADE", None),
-            ("🤖comandos", "💬 COMUNIDADE", None),
-            
-            # SUPORTE
-            ("🎫criar-ticket", "🎟️ SUPORTE", None),
-            ("🚨denuncias", "🎟️ SUPORTE", denuncias_overwrites),
-            ("❓ajuda", "🎟️ SUPORTE", None),
-            
-            # EVENTOS
-            ("🎁sorteios", "🎉 EVENTOS", None),
-            ("🎊eventos", "🎉 EVENTOS", None),
-            ("🏆resultados", "🎉 EVENTOS", None),
-            
-            # FEEDBACK E BUGS (Unificado)
-            ("💭sugestoes", "💡 FEEDBACK E BUGS", None),
-            ("✅sugestoes-aceitas", "💡 FEEDBACK E BUGS", staff_overwrites),
-            ("🐛reportar-bugs", "💡 FEEDBACK E BUGS", None),
-            ("📊leaderboard-bugs", "💡 FEEDBACK E BUGS", None),
+            ("regras", "📢 INFORMAÇÕES", None),
+            ("faq", "📢 INFORMAÇÕES", None),
+            ("anuncios", "📢 INFORMAÇÕES", None),
+            ("sobre-o-cassino", "📢 INFORMAÇÕES", None),
+            ("chat-geral", "💬 COMUNIDADE", None),
+            ("midia", "💬 COMUNIDADE", None),
+            ("comandos", "💬 COMUNIDADE", None),
+            ("criar-ticket", "🎟️ SUPORTE", None),
+            ("denuncias", "🎟️ SUPORTE", denuncias_overwrites),
+            ("ajuda", "🎟️ SUPORTE", None),
+            ("sorteios", "🎉 EVENTOS", None),
+            ("eventos", "🎉 EVENTOS", None),
+            ("resultados", "🎉 EVENTOS", None),
+            ("sugestoes", "💡 FEEDBACK E BUGS", None),
+            ("sugestoes-aceitas", "💡 FEEDBACK E BUGS", staff_overwrites),
+            ("reportar-bugs", "💡 FEEDBACK E BUGS", None),
+            ("leaderboard-bugs", "💡 FEEDBACK E BUGS", None),
         ]
         
         for ch_name, cat_name, overwrites in public_channels:
-            # Verifica se já existe
-            existing = None
-            for channel in guild.text_channels:
-                if ch_name.replace("📋", "").replace("❓", "").replace("📢", "").replace("🎰", "").replace("💬", "").replace("📸", "").replace("🤖", "").replace("🎫", "").replace("🚨", "").replace("🎁", "").replace("🎊", "").replace("🏆", "").replace("💭", "").replace("✅", "").replace("🐛", "").replace("📊", "").strip("-") in channel.name:
-                    existing = channel
-                    break
+            existing = discord.utils.get(guild.text_channels, name=ch_name)
             
             if existing:
                 created_channels[ch_name] = existing
@@ -1083,7 +1055,6 @@ async def setup(ctx):
             
             try:
                 if overwrites:
-                    # Merge overwrites da categoria com os específicos
                     final_overwrites = dict(category.overwrites)
                     final_overwrites.update(overwrites)
                     new_ch = await guild.create_text_channel(ch_name, category=category, overwrites=final_overwrites)
@@ -1102,21 +1073,17 @@ async def setup(ctx):
         await progress_msg.edit(content="🎰 **ETAPA 5/7** - Criando canais da staff...")
         
         staff_channels = [
-            ("💬staff-chat", "🔒 STAFF"),
-            ("⚙️configuracoes", "🔒 STAFF"),
-            ("👤logs-de-usuario", "📊 LOGS"),
-            ("📝logs-mensagens", "📊 LOGS"),
-            ("🎫logs-de-tickets", "📊 LOGS"),
-            ("🔨logs-de-punicoes", "📊 LOGS"),
-            ("🚨logs-de-denuncias", "📊 LOGS"),
+            ("staff-chat", "🔒 STAFF"),
+            ("configuracoes", "🔒 STAFF"),
+            ("logs-de-usuario", "📊 LOGS"),
+            ("logs-mensagens", "📊 LOGS"),
+            ("logs-de-tickets", "📊 LOGS"),
+            ("logs-de-punicoes", "📊 LOGS"),
+            ("logs-de-denuncias", "📊 LOGS"),
         ]
         
         for ch_name, cat_name in staff_channels:
-            existing = None
-            for channel in guild.text_channels:
-                if ch_name.replace("💬", "").replace("⚙️", "").replace("👤", "").replace("📝", "").replace("🎫", "").replace("🔨", "").replace("🚨", "").strip("-") in channel.name:
-                    existing = channel
-                    break
+            existing = discord.utils.get(guild.text_channels, name=ch_name)
             
             if existing:
                 created_channels[ch_name] = existing
@@ -1134,295 +1101,367 @@ async def setup(ctx):
                 print(f"Erro ao criar canal staff {ch_name}: {e}")
         
         # ═══════════════════════════════════════════════════════════
-        # ETAPA 6: MENSAGENS NOS CANAIS
+        # ETAPA 6: MENSAGENS NOS CANAIS COM MENÇÕES
         # ═══════════════════════════════════════════════════════════
         
         await progress_msg.edit(content="🎰 **ETAPA 6/7** - Enviando mensagens configuradas...")
         
-        # Função auxiliar para enviar embed
-        async def send_channel_message(channel_key, embed_content, image=None):
-            ch = created_channels.get(channel_key) or discord.utils.get(guild.channels, name=channel_key.replace("📋", "").replace("❓", "").replace("📢", "").replace("🎰", "").replace("💬", "").replace("📸", "").replace("🤖", "").replace("🎫", "").replace("🚨", "").replace("🎁", "").replace("🎊", "").replace("🏆", "").replace("💭", "").replace("✅", "").replace("🐛", "").replace("📊", "").strip("-"))
-            
-            if not ch:
-                return
-            
-            try:
-                embed = discord.Embed(
-                    title=embed_content.get("title", ""),
-                    description=embed_content.get("description", ""),
-                    color=embed_content.get("color", discord.Color.gold()),
-                    timestamp=datetime.datetime.now()
-                )
-                
-                if image:
-                    embed.set_image(url=image)
-                embed.set_footer(text="LeGusta Casino © 2024", icon_url="https://i.imgur.com/1NA8dQR.png")
-                
-                await ch.send(embed=embed)
-                await asyncio.sleep(0.5)
-            except Exception as e:
-                print(f"Erro ao enviar mensagem em {channel_key}: {e}")
+        # Pega as referências dos canais para menções
+        ch_regras = created_channels.get("regras")
+        ch_faq = created_channels.get("faq")
+        ch_sobre = created_channels.get("sobre-o-cassino")
+        ch_ajuda = created_channels.get("ajuda")
+        ch_sugestoes = created_channels.get("sugestoes")
+        ch_sugestoes_aceitas = created_channels.get("sugestoes-aceitas")
+        ch_reportar_bugs = created_channels.get("reportar-bugs")
+        ch_leaderboard = created_channels.get("leaderboard-bugs")
+        ch_denuncias = created_channels.get("denuncias")
+        ch_criar_ticket = created_channels.get("criar-ticket")
+        ch_sorteios = created_channels.get("sorteios")
+        ch_eventos = created_channels.get("eventos")
+        ch_anuncios = created_channels.get("anuncios")
+        ch_chat_geral = created_channels.get("chat-geral")
         
         # Mensagem em #regras
-        await send_channel_message("📋regras", {
-            "title": "📋 REGRAS DO SERVIDOR - LeGusta Casino",
-            "description": (
-                "Bem-vindo ao LeGusta Casino! Leia atentamente as regras:\n\n"
-                "**🎰 REGRAS DO CASSINO:**\n"
-                "1. **Respeite a fila** - Não passe na frente de outros jogadores\n"
-                "2. **Não roube prêmios** - Prêmios são do jogador que ganhou\n"
-                "3. **Seja respeitoso** - Com staff e outros players\n"
-                "4. **Sem brigas** - Baderna resultará em punição\n"
-                "5. **Use fichas corretas** - 5k ou 10k conforme a máquina\n\n"
-                "**📱 REGRAS DO DISCORD:**\n"
-                "1. **Sem spam** - Mensagens repetidas ou muito longas\n"
-                "2. **Sem divulgação** - Links de outros servidores\n"
-                "3. **Sem conteúdo NSFW** - Mantenha o servidor limpo\n"
-                "4. **Respeite todos** - Preconceito não será tolerado\n"
-                "5. **Use os canais corretos** - Cada canal tem sua função\n\n"
-                "**🔨 PUNIÇÕES:**\n"
-                "• Quebra de regras leves = Mute temporário\n"
-                "• Quebra de regras graves = Banimento\n"
-                "• Roubo/Trapacear = Ban permanente da GO e Discord\n\n"
-                "Ao participar, você concorda com todas as regras acima!"
-            ),
-            "color": discord.Color.red()
-        }, "https://i.imgur.com/1NA8dQR.png")
+        if ch_regras:
+            embed = discord.Embed(
+                title="📋 REGRAS DO SERVIDOR - LeGusta Casino",
+                description=(
+                    "Bem-vindo ao LeGusta Casino! Leia atentamente as regras:\n\n"
+                    "**🎰 REGRAS DO CASSINO:**\n"
+                    "1. **Respeite a fila** - Não passe na frente de outros jogadores\n"
+                    "2. **Não roube prêmios** - Prêmios são do jogador que ganhou\n"
+                    "3. **Seja respeitoso** - Com staff e outros players\n"
+                    "4. **Sem brigas** - Baderna resultará em punição\n"
+                    "5. **Use fichas corretas** - 5k ou 10k conforme a máquina\n\n"
+                    "**📱 REGRAS DO DISCORD:**\n"
+                    "1. **Sem spam** - Mensagens repetidas ou muito longas\n"
+                    "2. **Sem divulgação** - Links de outros servidores\n"
+                    "3. **Sem conteúdo NSFW** - Mantenha o servidor limpo\n"
+                    "4. **Respeite todos** - Preconceito não será tolerado\n"
+                    "5. **Use os canais corretos** - Cada canal tem sua função\n\n"
+                    "**🔨 PUNIÇÕES:**\n"
+                    "• Quebra de regras leves = Mute temporário\n"
+                    "• Quebra de regras graves = Banimento\n"
+                    "• Roubo/Trapacear = Ban permanente da GO e Discord\n\n"
+                    "Ao participar, você concorda com todas as regras acima!"
+                ),
+                color=discord.Color.red(),
+                timestamp=datetime.datetime.now()
+            )
+            embed.set_image(url="https://i.imgur.com/1NA8dQR.png")
+            embed.set_footer(text="LeGusta Casino © 2026", icon_url="https://i.imgur.com/1NA8dQR.png")
+            await ch_regras.send(embed=embed)
+            await asyncio.sleep(0.5)
         
         # Mensagem em #faq
-        await send_channel_message("❓faq", {
-            "title": "❓ PERGUNTAS FREQUENTES",
-            "description": (
-                "**💰 Como comprar fichas?**\n"
-                "Vá ao cassino e use os barris do FUNDO para COMPRAR.\n\n"
-                "**💱 Como vender fichas?**\n"
-                "Use os barris da FRENTE para VENDER suas fichas.\n\n"
-                "**🎰 Quais máquinas aceitam fichas de 5k?**\n"
-                "Apenas o Caça Níqueis aceita fichas de 5k.\n\n"
-                "**🎰 Quais máquinas aceitam fichas de 10k?**\n"
-                "Lucky Tower e Roleta aceitam apenas fichas de 10k.\n\n"
-                "**⏰ Qual horário de atendimento?**\n"
-                "O cassino funciona 24h, mas o atendimento staff é das 14h às 22h.\n\n"
-                "**🚨 Como denunciar alguém?**\n"
-                "Use o canal <#denuncias> ou abra um ticket privado.\n\n"
-                "**💡 Como dar sugestões?**\n"
-                "Use o canal <#sugestoes>."
-            ),
-            "color": discord.Color.blue()
-        })
+        if ch_faq:
+            embed = discord.Embed(
+                title="❓ PERGUNTAS FREQUENTES",
+                description=(
+                    f"**💰 Como comprar fichas?**\n"
+                    f"Vá ao cassino e use os barris do FUNDO para COMPRAR.\n\n"
+                    f"**💱 Como vender fichas?**\n"
+                    f"Use os barris da FRENTE para VENDER suas fichas.\n\n"
+                    f"**🎰 Quais máquinas aceitam fichas de 5k?**\n"
+                    f"Apenas o Caça Níqueis aceita fichas de 5k.\n\n"
+                    f"**🎰 Quais máquinas aceitam fichas de 10k?**\n"
+                    f"Lucky Tower e Roleta aceitam apenas fichas de 10k.\n\n"
+                    f"**⏰ Qual horário de atendimento?**\n"
+                    f"O cassino funciona 24h, mas o atendimento staff é das 14h às 22h.\n\n"
+                    f"**🚨 Como denunciar alguém?**\n"
+                    f"Use o canal {ch_denuncias.mention if ch_denuncias else '#denuncias'} ou abra um ticket privado em {ch_criar_ticket.mention if ch_criar_ticket else '#criar-ticket'}.\n\n"
+                    f"**💡 Como dar sugestões?**\n"
+                    f"Use o canal {ch_sugestoes.mention if ch_sugestoes else '#sugestoes'}."
+                ),
+                color=discord.Color.blue(),
+                timestamp=datetime.datetime.now()
+            )
+            embed.set_footer(text="LeGusta Casino © 2026", icon_url="https://i.imgur.com/1NA8dQR.png")
+            await ch_faq.send(embed=embed)
+            await asyncio.sleep(0.5)
         
         # Mensagem em #sobre-o-cassino
-        await send_channel_message("🎰sobre-o-cassino", {
-            "title": "🎰 SOBRE O LEGUSTA CASINO",
-            "description": (
-                "Bem-vindo ao maior cassino do Minecraft!\n\n"
-                "**🎯 Nossa Missão:**\n"
-                "Oferecer diversão e entretenimento de qualidade para todos os jogadores.\n\n"
-                "**🎮 Minigames Disponíveis:**\n"
-                "• 🏰 **Lucky Tower** - Escalone a torre e ganhe prêmios!\n"
-                "• 🎰 **Caça Níqueis** - Teste sua sorte nas máquinas clássicas!\n"
-                "• 🎡 **Roleta** - Aposte nas cores e números!\n\n"
-                "**💎 Vantagens:**\n"
-                "• Sistema de fichas justo\n"
-                "• Staff online e atenciosa\n"
-                "• Eventos semanais com prêmios especiais\n\n"
-                "**📍 Localização:**\n"
-                "Use `/go cassino` ou `/pwarp cassino` para chegar!\n\n"
-                "🍀 **Boa sorte e divirta-se responsavelmente!**"
-            ),
-            "color": discord.Color.gold()
-        }, "https://i.imgur.com/1NA8dQR.png")
+        if ch_sobre:
+            embed = discord.Embed(
+                title="🎰 SOBRE O LEGUSTA CASINO",
+                description=(
+                    "Bem-vindo ao maior cassino do Minecraft!\n\n"
+                    "**🎯 Nossa Missão:**\n"
+                    "Oferecer diversão e entretenimento de qualidade para todos os jogadores.\n\n"
+                    "**🎮 Minigames Disponíveis:**\n"
+                    "• 🏰 **Lucky Tower** - Escalone a torre e ganhe prêmios!\n"
+                    "• 🎰 **Caça Níqueis** - Teste sua sorte nas máquinas clássicas!\n"
+                    "• 🎡 **Roleta** - Aposte nas cores e números!\n\n"
+                    "**💎 Vantagens:**\n"
+                    "• Sistema de fichas justo\n"
+                    "• Staff online e atenciosa\n"
+                    "• Eventos semanais com prêmios especiais\n\n"
+                    "**📍 Localização:**\n"
+                    "Use `/go LeGusta` ou `/pwarp LeGusta` para chegar!\n\n"
+                    "🍀 **Boa sorte e divirta-se responsavelmente!**"
+                ),
+                color=discord.Color.gold(),
+                timestamp=datetime.datetime.now()
+            )
+            embed.set_image(url="https://i.imgur.com/1NA8dQR.png")
+            embed.set_footer(text="LeGusta Casino © 2026", icon_url="https://i.imgur.com/1NA8dQR.png")
+            await ch_sobre.send(embed=embed)
+            await asyncio.sleep(0.5)
         
         # Mensagem em #ajuda
-        await send_channel_message("❓ajuda", {
-            "title": "🎰 PAINEL DE AJUDA - LeGusta Casino",
-            "description": (
-                "💰 **1. FICHAS - COMO FUNCIONA?**\n"
-                "Para apostar em qualquer máquina, você precisa adquirir fichas:\n"
-                "• Fichas de 5k ou 10k\n"
-                "• Algumas máquinas aceitam apenas fichas de 10k\n"
-                "• Outras aceitam apenas fichas de 5k\n"
-                "⚠️ Escolha a máquina de acordo com sua ficha!\n\n"
-                "🛒 **2. ONDE COMPRO FICHAS?**\n"
-                "Ao chegar na LeGusta, caminhe em direção ao cassino:\n"
-                "• Barris da FRENTE = VENDER fichas ✅\n"
-                "• Barris do FUNDO = COMPRAR fichas ✅\n"
-                "Perdido? Chame um staff online:\n"
-                "• *Spokeas | *Mateus | *Gusteds\n\n"
-                "🎮 **3. MINIGAMES DISPONÍVEIS**\n"
-                "• 🏰 Lucky Tower\n"
-                "• 🎰 Caça Níqueis\n"
-                "• 🎡 Roleta\n\n"
-                "📋 **4. COMO JOGAR?**\n"
-                "• Lucky Tower → Fichas de 10k ✅\n"
-                "• Roleta → Fichas de 10k ✅\n"
-                "• Caça Níqueis → Fichas de 5k ✅\n"
-                "⚠️ Lucky Tower e Roleta NÃO aceitam fichas de 5k!\n\n"
-                "⚖️ **5. REGRAS IMPORTANTES**\n"
-                "✓ Respeite a fila nos minigames\n"
-                "✓ Não roube prêmios de outros jogadores\n"
-                "✓ Seja respeitoso com staff e players\n"
-                "❌ Denúncias? Abra um ticket\n"
-                "😔 Quebra de regras = BAN"
-            ),
-            "color": discord.Color.gold()
-        }, "https://i.imgur.com/1NA8dQR.png")
+        if ch_ajuda:
+            embed = discord.Embed(
+                title="🎰 PAINEL DE AJUDA - LeGusta Casino",
+                description=(
+                    f"💰 **1. FICHAS - COMO FUNCIONA?**\n"
+                    f"Para apostar em qualquer máquina, você precisa adquirir fichas:\n"
+                    f"• Fichas de 5k ou 10k\n"
+                    f"• Algumas máquinas aceitam apenas fichas de 10k\n"
+                    f"• Outras aceitam apenas fichas de 5k\n"
+                    f"⚠️ Escolha a máquina de acordo com sua ficha!\n\n"
+                    f"🛒 **2. ONDE COMPRO FICHAS?**\n"
+                    f"Ao chegar na LeGusta, caminhe em direção ao cassino:\n"
+                    f"• Barris da FRENTE = VENDER fichas ✅\n"
+                    f"• Barris do FUNDO = COMPRAR fichas ✅\n"
+                    f"Perdido? Chame um staff online:\n"
+                    f"• *Spokeas | *Mateus | *Gusteds\n\n"
+                    f"🎮 **3. MINIGAMES DISPONÍVEIS**\n"
+                    f"• 🏰 Lucky Tower\n"
+                    f"• 🎰 Caça Níqueis\n"
+                    f"• 🎡 Roleta\n\n"
+                    f"📋 **4. COMO JOGAR?**\n"
+                    f"• Lucky Tower → Fichas de 10k ✅\n"
+                    f"• Roleta → Fichas de 10k ✅\n"
+                    f"• Caça Níqueis → Fichas de 5k ✅\n"
+                    f"⚠️ Lucky Tower e Roleta NÃO aceitam fichas de 5k!\n\n"
+                    f"⚖️ **5. REGRAS IMPORTANTES**\n"
+                    f"✓ Respeite a fila nos minigames\n"
+                    f"✓ Não roube prêmios de outros jogadores\n"
+                    f"✓ Seja respeitoso com staff e players\n"
+                    f"❌ Denúncias? Abra um ticket em {ch_criar_ticket.mention if ch_criar_ticket else '#criar-ticket'}\n"
+                    f"😔 Quebra de regras = BAN"
+                ),
+                color=discord.Color.gold(),
+                timestamp=datetime.datetime.now()
+            )
+            embed.set_image(url="https://i.imgur.com/1NA8dQR.png")
+            embed.set_footer(text="LeGusta Casino © 2026", icon_url="https://i.imgur.com/1NA8dQR.png")
+            await ch_ajuda.send(embed=embed)
+            await asyncio.sleep(0.5)
         
         # Mensagem em #sugestoes
-        await send_channel_message("💭sugestoes", {
-            "title": "💡 SISTEMA DE SUGESTÕES",
-            "description": (
-                "Bem-vindo ao canal de sugestões!\n\n"
-                "**Como funciona:**\n"
-                "1. Escreva sua sugestão em uma mensagem neste canal\n"
-                "2. O bot criará automaticamente uma discussão para votarem\n"
-                "3. Reaja com ✅ se aprova ou ❌ se rejeita\n"
-                "4. Após 7 dias, sugestões aprovadas vão para <#sugestoes-aceitas>\n\n"
-                "**Regras:**\n"
-                "• Uma sugestão por mensagem\n"
-                "• Seja claro e objetivo\n"
-                "• Sugestões repetidas serão deletadas\n\n"
-                "💭 **Envie sua sugestão abaixo!**"
-            ),
-            "color": discord.Color.blue()
-        })
+        if ch_sugestoes:
+            embed = discord.Embed(
+                title="💡 SISTEMA DE SUGESTÕES",
+                description=(
+                    f"Bem-vindo ao canal de sugestões!\n\n"
+                    f"**Como funciona:**\n"
+                    f"1. Escreva sua sugestão em uma mensagem neste canal\n"
+                    f"2. O bot criará automaticamente uma discussão para votarem\n"
+                    f"3. Reaja com ✅ se aprova ou ❌ se rejeita\n"
+                    f"4. Após 7 dias, sugestões aprovadas vão para {ch_sugestoes_aceitas.mention if ch_sugestoes_aceitas else '#sugestoes-aceitas'}\n\n"
+                    f"**Regras:**\n"
+                    f"• Uma sugestão por mensagem\n"
+                    f"• Seja claro e objetivo\n"
+                    f"• Sugestões repetidas serão deletadas\n\n"
+                    f"💭 **Envie sua sugestão abaixo!**"
+                ),
+                color=discord.Color.blue(),
+                timestamp=datetime.datetime.now()
+            )
+            embed.set_footer(text="LeGusta Casino © 2026", icon_url="https://i.imgur.com/1NA8dQR.png")
+            await ch_sugestoes.send(embed=embed)
+            await asyncio.sleep(0.5)
         
         # Mensagem em #reportar-bugs
-        await send_channel_message("🐛reportar-bugs", {
-            "title": "🐛 REPORTAR BUGS",
-            "description": (
-                "Encontrou algum problema? Reporte aqui!\n\n"
-                "**Como reportar:**\n"
-                "1. Descreva o bug detalhadamente\n"
-                "2. Explique como reproduzir o problema\n"
-                "3. Se possível, envie screenshots\n"
-                "4. Informe quando começou a acontecer\n\n"
-                "**Tipos de bugs:**\n"
-                "• 🎮 **Bugs de Minigames** - Máquinas com problemas\n"
-                "• 🤖 **Bugs do Bot** - Comandos não funcionando\n"
-                "• 🌐 **Bugs do Servidor** - Lag, quedas, etc\n\n"
-                "**Recompensas:**\n"
-                "Quem mais reportar bugs ganha destaque no leaderboard mensal!\n\n"
-                "🔧 **Descreva seu bug abaixo:**"
-            ),
-            "color": discord.Color.orange()
-        })
+        if ch_reportar_bugs:
+            embed = discord.Embed(
+                title="🐛 REPORTAR BUGS",
+                description=(
+                    f"Encontrou algum problema? Reporte aqui!\n\n"
+                    f"**Como reportar:**\n"
+                    f"1. Descreva o bug detalhadamente\n"
+                    f"2. Explique como reproduzir o problema\n"
+                    f"3. Se possível, envie screenshots\n"
+                    f"4. Informe quando começou a acontecer\n\n"
+                    f"**Tipos de bugs:**\n"
+                    f"• 🎮 **Bugs de Minigames** - Máquinas com problemas\n"
+                    f"• 🤖 **Bugs do Bot** - Comandos não funcionando\n"
+                    f"• 🌐 **Bugs do Servidor** - Lag, quedas, etc\n\n"
+                    f"**Recompensas:**\n"
+                    f"Quem mais reportar bugs ganha destaque no {ch_leaderboard.mention if ch_leaderboard else '#leaderboard-bugs'} mensal!\n\n"
+                    f"🔧 **Descreva seu bug abaixo:**"
+                ),
+                color=discord.Color.orange(),
+                timestamp=datetime.datetime.now()
+            )
+            embed.set_footer(text="LeGusta Casino © 2026", icon_url="https://i.imgur.com/1NA8dQR.png")
+            await ch_reportar_bugs.send(embed=embed)
+            await asyncio.sleep(0.5)
         
         # Mensagem em #leaderboard-bugs
-        await send_channel_message("📊leaderboard-bugs", {
-            "title": "🏆 LEADERBOARD DE BUGS",
-            "description": (
-                "Top 10 usuários que mais ajudaram reportando bugs este mês!\n\n"
-                "**🥇 1º Lugar:** Em breve...\n"
-                "**🥈 2º Lugar:** Em breve...\n"
-                "**🥉 3º Lugar:** Em breve...\n"
-                "**4º-10º:** Em breve...\n\n"
-                "📅 **Reseta todo dia 1º do mês**\n"
-                "💰 **Prêmios para os top 3!**\n\n"
-                "Reporte bugs em <#reportar-bugs>!"
-            ),
-            "color": discord.Color.gold()
-        })
+        if ch_leaderboard:
+            embed = discord.Embed(
+                title="🏆 LEADERBOARD DE BUGS",
+                description=(
+                    f"Top 10 usuários que mais ajudaram reportando bugs este mês!\n\n"
+                    f"**🥇 1º Lugar:** Em breve...\n"
+                    f"**🥈 2º Lugar:** Em breve...\n"
+                    f"**🥉 3º Lugar:** Em breve...\n"
+                    f"**4º-10º:** Em breve...\n\n"
+                    f"📅 **Reseta todo dia 1º do mês**\n"
+                    f"💰 **Prêmios para os top 3!**\n\n"
+                    f"Reporte bugs em {ch_reportar_bugs.mention if ch_reportar_bugs else '#reportar-bugs'}!"
+                ),
+                color=discord.Color.gold(),
+                timestamp=datetime.datetime.now()
+            )
+            embed.set_footer(text="LeGusta Casino © 2026", icon_url="https://i.imgur.com/1NA8dQR.png")
+            await ch_leaderboard.send(embed=embed)
+            await asyncio.sleep(0.5)
         
         # Mensagem em #denuncias (público)
-        await send_channel_message("🚨denuncias", {
-            "title": "🚨 CANAL DE DENÚNCIAS",
-            "description": (
-                "**Denúncias resolvidas aparecerão aqui!**\n\n"
-                "Para fazer uma denúncia anônima:\n"
-                "• Use o comando `/denunciar`\n"
-                "• Ou abra um ticket privado em <#criar-ticket>\n\n"
-                "⚠️ **Atenção:**\n"
-                "• Denúncias falsas resultarão em punição\n"
-                "• Apenas denúncias confirmadas aparecem aqui\n"
-                "• Sistema 100% anônimo para proteção do denunciante\n\n"
-                "🔒 **Sua segurança é nossa prioridade!**"
-            ),
-            "color": discord.Color.red()
-        })
+        if ch_denuncias:
+            embed = discord.Embed(
+                title="🚨 CANAL DE DENÚNCIAS",
+                description=(
+                    f"**Denúncias resolvidas aparecerão aqui!**\n\n"
+                    f"Para fazer uma denúncia anônima:\n"
+                    f"• Use o comando `/denunciar`\n"
+                    f"• Ou abra um ticket privado em {ch_criar_ticket.mention if ch_criar_ticket else '#criar-ticket'}\n\n"
+                    f"⚠️ **Atenção:**\n"
+                    f"• Denúncias falsas resultarão em punição\n"
+                    f"• Apenas denúncias confirmadas aparecem aqui\n"
+                    f"• Sistema 100% anônimo para proteção do denunciante\n\n"
+                    f"🔒 **Sua segurança é nossa prioridade!**"
+                ),
+                color=discord.Color.red(),
+                timestamp=datetime.datetime.now()
+            )
+            embed.set_footer(text="LeGusta Casino © 2026", icon_url="https://i.imgur.com/1NA8dQR.png")
+            await ch_denuncias.send(embed=embed)
+            await asyncio.sleep(0.5)
         
         # Mensagem em #sorteios
-        await send_channel_message("🎁sorteios", {
-            "title": "🎉 SORTEIOS E EVENTOS",
-            "description": (
-                "Fique atento aos sorteios e eventos do servidor!\n\n"
-                "**🎁 Sorteios Regulares:**\n"
-                "• Sorteios semanais de fichas\n"
-                "• Eventos especiais de feriado\n"
-                "• Torneios entre jogadores\n\n"
-                "**🏆 Como Participar:**\n"
-                "• Reaja com 🎉 nos sorteios ativos\n"
-                "• Siga as regras de cada evento\n"
-                "• Fique online no horário do sorteio\n\n"
-                "🍀 **Boa sorte!**"
-            ),
-            "color": discord.Color.purple()
-        })
+        if ch_sorteios:
+            embed = discord.Embed(
+                title="🎉 SORTEIOS E EVENTOS",
+                description=(
+                    f"Fique atento aos sorteios e eventos do servidor!\n\n"
+                    f"**🎁 Sorteios Regulares:**\n"
+                    f"• Sorteios semanais de fichas\n"
+                    f"• Eventos especiais de feriado\n"
+                    f"• Torneios entre jogadores\n\n"
+                    f"**🏆 Como Participar:**\n"
+                    f"• Reaja com 🎉 nos sorteios ativos\n"
+                    f"• Siga as regras de cada evento\n"
+                    f"• Fique online no horário do sorteio\n\n"
+                    f"🍀 **Boa sorte!**"
+                ),
+                color=discord.Color.purple(),
+                timestamp=datetime.datetime.now()
+            )
+            embed.set_footer(text="LeGusta Casino © 2026", icon_url="https://i.imgur.com/1NA8dQR.png")
+            await ch_sorteios.send(embed=embed)
+            await asyncio.sleep(0.5)
+        
+        # Mensagem em #eventos
+        if ch_eventos:
+            embed = discord.Embed(
+                title="🎊 EVENTOS ESPECIAIS",
+                description=(
+                    f"**Próximos Eventos:**\n\n"
+                    f"📅 **Sexta-Feira da Sorte** - Dobro de fichas em todas as máquinas!\n"
+                    f"📅 **Sábado Magnata** - Torneio com prêmio de 100k fichas!\n"
+                    f"📅 **Domingo VIP** - Acesso exclusivo a máquinas especiais!\n\n"
+                    f"**🎯 Como Participar:**\n"
+                    f"• Fique atento aos horários em {ch_anuncios.mention if ch_anuncios else '#anuncios'}\n"
+                    f"• Leia as regras de cada evento\n"
+                    f"• Divirta-se!\n\n"
+                    f"**💎 Benefícios:**\n"
+                    f"• Prêmios em fichas\n"
+                    f"• Títulos exclusivos\n"
+                    f"• Reconhecimento no servidor\n\n"
+                    f"🎰 **Não perca!**"
+                ),
+                color=discord.Color.green(),
+                timestamp=datetime.datetime.now()
+            )
+            embed.set_footer(text="LeGusta Casino © 2026", icon_url="https://i.imgur.com/1NA8dQR.png")
+            await ch_eventos.send(embed=embed)
+            await asyncio.sleep(0.5)
         
         # Mensagem em #anuncios
-        await send_channel_message("📢anuncios", {
-            "title": "🎰 BEM-VINDO AO LEGUSTA CASINO!",
-            "description": (
-                "O maior e mais completo cassino do Minecraft está de portas abertas!\n\n"
-                "**✨ O que oferecemos:**\n"
-                "• 3 minigames incríveis\n"
-                "• Sistema de fichas justo\n"
-                "• Staff ativa e dedicada\n"
-                "• Eventos semanais\n"
-                "• Sistema de suporte completo\n\n"
-                "**🚀 Comece agora:**\n"
-                "• Leia as regras em <#regras>\n"
-                "• Veja como jogar em <#ajuda>\n"
-                "• Abra um ticket se precisar de ajuda\n\n"
-                "🍀 **Boa sorte e divirta-se!**"
-            ),
-            "color": discord.Color.gold()
-        }, "https://i.imgur.com/1NA8dQR.png")
+        if ch_anuncios:
+            embed = discord.Embed(
+                title="🎰 BEM-VINDO AO LEGUSTA CASINO!",
+                description=(
+                    f"O maior e mais completo cassino do Minecraft está de portas abertas!\n\n"
+                    f"**✨ O que oferecemos:**\n"
+                    f"• 3 minigames incríveis\n"
+                    f"• Sistema de fichas justo\n"
+                    f"• Staff ativa e dedicada\n"
+                    f"• Eventos semanais\n"
+                    f"• Sistema de suporte completo\n\n"
+                    f"**🚀 Comece agora:**\n"
+                    f"• Leia as regras em {ch_regras.mention if ch_regras else '#regras'}\n"
+                    f"• Veja como jogar em {ch_ajuda.mention if ch_ajuda else '#ajuda'}\n"
+                    f"• Tire dúvidas no {ch_faq.mention if ch_faq else '#faq'}\n"
+                    f"• Converse no {ch_chat_geral.mention if ch_chat_geral else '#chat-geral'}\n"
+                    f"• Abra um ticket em {ch_criar_ticket.mention if ch_criar_ticket else '#criar-ticket'} se precisar de ajuda\n\n"
+                    f"🍀 **Boa sorte e divirta-se!**"
+                ),
+                color=discord.Color.gold(),
+                timestamp=datetime.datetime.now()
+            )
+            embed.set_image(url="https://i.imgur.com/1NA8dQR.png")
+            embed.set_footer(text="LeGusta Casino © 2026", icon_url="https://i.imgur.com/1NA8dQR.png")
+            await ch_anuncios.send(embed=embed)
+            await asyncio.sleep(0.5)
         
         # ═══════════════════════════════════════════════════════════
-        # ETAPA 7: PAINEL DE TICKET (IMPORTANTE!)
+        # ETAPA 7: PAINEL DE TICKET
         # ═══════════════════════════════════════════════════════════
         
         await progress_msg.edit(content="🎰 **ETAPA 7/7** - Configurando painel de tickets...")
         
-        ticket_ch = created_channels.get("🎫criar-ticket") or discord.utils.get(guild.channels, name="criar-ticket")
-        
-        if ticket_ch:
+        if ch_criar_ticket:
             try:
                 # Limpa o canal
-                await ticket_ch.purge(limit=100)
+                await ch_criar_ticket.purge(limit=100)
                 
-                # Embed do painel
+                # Embed do painel com menções atualizadas
                 ticket_panel_embed = discord.Embed(
                     title="🎰 CENTRAL DE ATENDIMENTO - LeGusta Casino",
                     description=(
-                        "Bem-vindo ao sistema de tickets do LeGusta Casino!\n\n"
-                        "🎫 **Como funciona:**\n"
-                        "Selecione uma opção no menu abaixo para abrir um atendimento privado com nossa equipe.\n\n"
-                        "📋 **Tipos de Atendimento:**\n"
-                        "❓ **Dúvidas Gerais** - Tire suas dúvidas sobre o servidor\n"
-                        "🎰 **Sobre o Cassino** - Questões sobre jogos, fichas e máquinas\n"
-                        "🚨 **Denúncias** - Reportar comportamento inadequado de jogadores\n"
-                        "👑 **Falar com Gerência** - Assuntos urgentes (apenas gerentes)\n"
-                        "🔧 **Suporte Técnico** - Problemas técnicos no servidor\n\n"
-                        "⏰ **Horário de Atendimento:**\n"
-                        "• Segunda a Sexta: 14h às 22h\n"
-                        "• Fins de semana: 12h às 20h\n\n"
-                        "⚠️ **Importante:**\n"
-                        "• Abuse do sistema resultará em punição\n"
-                        "• Tickets inativos por 30 dias são fechados automaticamente\n"
-                        "• Seja claro e objetivo na descrição do problema\n\n"
-                        "🍀 **Boa sorte e obrigado por escolher o LeGusta Casino!**"
+                        f"Bem-vindo ao sistema de tickets do LeGusta Casino!\n\n"
+                        f"🎫 **Como funciona:**\n"
+                        f"Selecione uma opção no menu abaixo para abrir um atendimento privado com nossa equipe.\n\n"
+                        f"📋 **Tipos de Atendimento:**\n"
+                        f"❓ **Dúvidas Gerais** - Tire suas dúvidas sobre o servidor\n"
+                        f"🎰 **Sobre o Cassino** - Questões sobre jogos, fichas e máquinas\n"
+                        f"🚨 **Denúncias** - Reportar comportamento inadequado de jogadores\n"
+                        f"👑 **Falar com Gerência** - Assuntos urgentes (apenas gerentes)\n"
+                        f"🔧 **Suporte Técnico** - Problemas técnicos no servidor\n\n"
+                        f"⏰ **Horário de Atendimento:**\n"
+                        f"• Segunda a Sexta: 14h às 22h\n"
+                        f"• Fins de semana: 12h às 20h\n\n"
+                        f"⚠️ **Importante:**\n"
+                        f"• Abuse do sistema resultará em punição\n"
+                        f"• Tickets inativos por 30 dias são fechados automaticamente\n"
+                        f"• Seja claro e objetivo na descrição do problema\n\n"
+                        f"🍀 **Boa sorte e obrigado por escolher o LeGusta Casino!**"
                     ),
                     color=discord.Color.gold(),
                     timestamp=datetime.datetime.now()
                 )
                 ticket_panel_embed.set_thumbnail(url="https://i.imgur.com/1NA8dQR.png")
                 ticket_panel_embed.set_image(url="https://i.imgur.com/1NA8dQR.png")
-                ticket_panel_embed.set_footer(text="LeGusta Casino © 2024 | Clique no menu abaixo para abrir um ticket")
+                ticket_panel_embed.set_footer(text="LeGusta Casino © 2026 | Clique no menu abaixo para abrir um ticket", icon_url="https://i.imgur.com/1NA8dQR.png")
                 
                 view = TicketPanelView()
-                await ticket_ch.send(embed=ticket_panel_embed, view=view)
+                await ch_criar_ticket.send(embed=ticket_panel_embed, view=view)
                 
             except Exception as e:
                 print(f"Erro ao configurar painel de ticket: {e}")
@@ -1440,7 +1479,8 @@ async def setup(ctx):
             f"🎭 **Cargos criados:** {total_roles}/11\n"
             f"📁 **Categorias criadas:** {total_categories}/8\n"
             f"💬 **Canais criados:** {total_channels}/25+\n"
-            f"🎫 **Painel de ticket:** Ativo\n\n"
+            f"🎫 **Painel de ticket:** Ativo\n"
+            f"📅 **Ano:** 2026\n\n"
             f"**O servidor LeGusta Casino está pronto para uso!** 🎰"
         )
         
@@ -1502,7 +1542,7 @@ async def on_message(message):
         return
     
     # Sistema de sugestões - cria thread automaticamente
-    if message.channel.name == "sugestoes" or "sugestoes" in message.channel.name:
+    if message.channel.name == "sugestoes":
         if not message.author.bot:
             try:
                 thread = await message.create_thread(name=f"Sugestão: {message.content[:30]}...")
@@ -1512,12 +1552,11 @@ async def on_message(message):
             except:
                 pass
     
-    # Sistema de bugs - reage e oferece ping
-    if message.channel.name == "reportar-bugs" or "reportar-bugs" in message.channel.name:
+    # Sistema de bugs - reage
+    if message.channel.name == "reportar-bugs":
         if not message.author.bot:
             try:
                 await message.add_reaction("🐛")
-                # Aqui você pode adicionar lógica de ping se quiser
             except:
                 pass
     
